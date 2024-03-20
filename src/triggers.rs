@@ -6,7 +6,8 @@ use rand::Rng;
 
 use crate::{
     conditions::{
-        charge_blade::ChargeBladeCondition, fsmid::FsmIDCondition, insect_glaive::InsectGlaiveCondition, longsword::LongswordCondition, quest_state::QuestStateCondition, weapon_id::WeaponTypeCondition
+        charge_blade::ChargeBladeCondition, fsmid::FsmIDCondition, insect_glaive::InsectGlaiveCondition,
+        longsword::LongswordCondition, quest_state::QuestStateCondition, weapon_id::WeaponTypeCondition,
     },
     configs::{self, ActionMode, TriggerCondition},
     game_context::{Context, Fsm},

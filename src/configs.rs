@@ -88,7 +88,7 @@ pub struct NewOldValueCmp {
 }
 
 /// 触发器检查条件
-/// 
+///
 /// 检查条件会在触发器被触发时，检查是否满足要求
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -277,5 +277,4 @@ mod tests {
         let cfg = load_config(FILE_PATH_1).unwrap();
         eprintln!("{:?}", cfg);
     }
-
 }
