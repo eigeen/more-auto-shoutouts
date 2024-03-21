@@ -1,8 +1,6 @@
 use std::sync::Once;
 
-use log::{error, info, LevelFilter};
-use mhw_toolkit::logger::MHWLogger;
-use once_cell::sync::Lazy;
+use log::{error, info};
 use tokio::signal;
 use tokio::sync::mpsc;
 use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE};
@@ -28,12 +26,28 @@ impl App {
     }
 }
 
-static LOGGER: Lazy<MHWLogger> = Lazy::new(|| MHWLogger::new("More Auto Shoutouts"));
+#[cfg(feature = "use_logger")]
+mod use_logger {
+    use log::LevelFilter;
+    use mhw_toolkit::logger::MHWLogger;
+    use once_cell::sync::Lazy;
 
-fn init_log() {
-    log::set_logger(&*LOGGER).unwrap();
-    log::set_max_level(LevelFilter::Debug);
+    static LOGGER: Lazy<MHWLogger> = Lazy::new(|| MHWLogger::new("More Auto Shoutouts"));
+
+    pub fn init_log() {
+        log::set_logger(&*LOGGER).unwrap();
+        log::set_max_level(LevelFilter::Debug);
+    }
 }
+
+#[cfg(not(feature = "use_logger"))]
+mod use_logger {
+    pub fn init_log() {
+        // no log backend
+    }
+}
+
+use use_logger::init_log;
 
 fn main_entry() -> Result<(), String> {
     init_log();
