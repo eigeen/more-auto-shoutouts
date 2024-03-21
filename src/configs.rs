@@ -7,11 +7,11 @@ use crate::game_context;
 
 #[derive(Debug, Snafu)]
 pub enum ConfigError {
-    #[snafu(display("Failed to parse config file: {}", source))]
+    #[snafu(display("解析配置文件失败：{}", source))]
     Parse { source: toml::de::Error },
-    #[snafu(display("Failed to read config file: {}", source))]
+    #[snafu(display("读取配置文件失败：{}", source))]
     Io { source: std::io::Error },
-    #[snafu(display("Failed to parse config file: {reason}"))]
+    #[snafu(display("验证配置文件失败：{reason}"))]
     Validate { reason: String },
 }
 

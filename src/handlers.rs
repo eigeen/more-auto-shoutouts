@@ -26,7 +26,7 @@ pub async fn event_listener(tx: Sender<Event>) {
         if let Some(cmd) = &ctx.chat_command {
             match cmd {
                 ChatCommand::ReloadConfig => {
-                    debug!("on reload config");
+                    debug!("on {}", "ChatCommand::ReloadConfig");
                     info!("接收用户命令：{:?}", cmd);
                     let trigger_mgr = match load_triggers() {
                         Ok(mgr) => mgr,
@@ -41,7 +41,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }
         }
         if ctx.quest_state != last_ctx.quest_state {
-            debug!("on quest_state changed");
+            debug!("on {}", "Event::QuestStateChanged");
             tx_send_or_break!(tx.send(Event::QuestStateChanged {
                 new: ctx.quest_state,
                 old: last_ctx.quest_state,
@@ -49,7 +49,12 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.weapon_type != last_ctx.weapon_type {
-            debug!("on weapon_type changed from {:?} to {:?}", last_ctx.weapon_type, ctx.weapon_type);
+            debug!(
+                "on {} from {:?} to {:?}",
+                "Event::WeaponTypeChanged",
+                last_ctx.weapon_type,
+                ctx.weapon_type
+            );
             tx_send_or_break!(tx.send(Event::WeaponTypeChanged {
                 new: ctx.weapon_type,
                 old: last_ctx.weapon_type,
@@ -57,7 +62,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.fsm != last_ctx.fsm {
-            debug!("on fsm_id changed from {:?} to {:?}", last_ctx.fsm, ctx.fsm);
+            debug!("on {} from {:?} to {:?}", "Event::FsmChanged", last_ctx.fsm, ctx.fsm);
             tx_send_or_break!(tx.send(Event::FsmChanged {
                 new: ctx.fsm,
                 old: last_ctx.fsm,
@@ -65,7 +70,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.use_item_id > 0 && ctx.use_item_id < 3000 && ctx.use_item_id != last_ctx.use_item_id {
-            debug!("on use_item id = {}", ctx.use_item_id);
+            debug!("on {} id = {}", "Event::UseItem", ctx.use_item_id);
             tx_send_or_break!(tx.send(Event::UseItem {
                 item_id: ctx.use_item_id,
                 ctx: ctx.clone()
@@ -73,7 +78,12 @@ pub async fn event_listener(tx: Sender<Event>) {
         }
         if WeaponType::LongSword == ctx.weapon_type {
             if ctx.longsword_level != last_ctx.longsword_level {
-                debug!("on longsword_level changed from {} to {}", last_ctx.longsword_level, ctx.longsword_level);
+                debug!(
+                    "on {} from {} to {}",
+                    "Event::LongswordLevelChanged",
+                    last_ctx.longsword_level,
+                    ctx.longsword_level
+                );
                 tx_send_or_break!(tx.send(Event::LongswordLevelChanged {
                     new: ctx.longsword_level,
                     old: last_ctx.longsword_level,
@@ -84,14 +94,14 @@ pub async fn event_listener(tx: Sender<Event>) {
             let new = &ctx.insect_glaive;
             let old = &last_ctx.insect_glaive;
             if is_insect_glaive_changed(new, old) {
-                debug!("on insect_glaive changed");
+                debug!("on {}", "Event::InsectGlaive",);
                 tx_send_or_break!(tx.send(Event::InsectGlaive { ctx: ctx.clone() }));
             }
         } else if WeaponType::ChargeBlade == ctx.weapon_type {
             let new = &ctx.charge_blade;
             let old = &last_ctx.charge_blade;
             if is_charge_blade_changed(new, old) {
-                debug!("on charge_blade changed");
+                debug!("on {}", "Event::ChargeBlade",);
                 tx_send_or_break!(tx.send(Event::ChargeBlade { ctx: ctx.clone() }));
             }
         }
@@ -139,6 +149,7 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
 }
 
 pub fn load_triggers() -> Result<TriggerManager, String> {
+    info!("尝试加载配置文件 nativePC/plugins/mas-config.toml");
     let config = match configs::load_config("./nativePC/plugins/mas-config.toml") {
         Ok(cfg) => cfg,
         Err(e) => return Err(e.to_string()),
