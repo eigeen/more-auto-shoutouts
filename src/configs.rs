@@ -199,7 +199,7 @@ mod tests {
 
     use super::*;
 
-    const FILE_PATH_1: &str = "mas-config.toml";
+    const EXAMPLE_FILE_PATH: &str = "mas-config.example.toml";
 
     #[test]
     fn test_value_cmp_i32() {
@@ -279,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_load_config() {
-        let cfg = load_config(FILE_PATH_1).unwrap();
+        let cfg = load_config(EXAMPLE_FILE_PATH).unwrap();
         eprintln!("{:?}", cfg);
     }
 
@@ -287,5 +287,12 @@ mod tests {
     fn test_valuecmp_weapon() {
         let longsword = WeaponType::LongSword;
         assert!(ValueCmp::EqInt(3) == longsword.as_i32());
+    }
+
+    #[test]
+    fn test_convert_to_json() {
+        let cfg = load_config(EXAMPLE_FILE_PATH).unwrap();
+        let json_cfg = serde_json::to_string(&cfg).unwrap();
+        eprintln!("{}", json_cfg);
     }
 }
