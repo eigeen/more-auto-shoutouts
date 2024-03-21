@@ -6,248 +6,255 @@
 # random: 随机选取执行
 action_mode = "sequential_all"
 
-# 触发条件设置（有且仅有一个）
-[trigger.trigger_on.longsword_level_changed]
-new = 1
-old = 0
+    # 触发条件设置（有且仅有一个）
+    [trigger.trigger_on.longsword_level_changed]
+    new = 1
+    old = 0
 
-# 触发检查条件设置
-# 多个条件同时满足才会执行
-# [[trigger.check]]
-# weapon_type.value = 3
+    # 触发检查条件设置
+    # 多个条件同时满足才会执行
+    # [[trigger.check]]
+    # weapon_type.value = 3
 
-# 触发事件设置
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<SIZE 25>黑龙歼灭刀已解放不屈白刃！</SIZE>"
+    # 触发事件设置
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "白刃"
 
 # ========== 太刀黄刃 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.longsword_level_changed]
-new = 2
-old = 1
+    [trigger.trigger_on.longsword_level_changed]
+    new = 2
+    old = 1
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_YELLOW_DEFAULT><SIZE 25>黑龙歼灭刀已解放华贵黄刃！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "黄刃"
 
 
 # ========== 太刀红刃 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.longsword_level_changed]
-new = 3
-old = 2
+    [trigger.trigger_on.longsword_level_changed]
+    new = 3
+    old = 2
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_RED_DEFAULT><SIZE 30>黑龙歼灭刀已解放至尊红刃！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "红刃"
 
 
 # ========== 太刀进入任务 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.quest_state]
-value = 2
+    [trigger.trigger_on.quest_state]
+    value = 2
 
-[[trigger.check]]
-weapon_type.value = 3
+    [[trigger.check]]
+    weapon_type.value = 3
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<SIZE 35>全体目光向我看齐，太刀尊驾到！</SIZE>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "太刀加入游戏"
 
 
 # ========== 太刀登龙动作 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.fsm]
-new = { target = 3, id = 87 }
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 87 }
 
-[[trigger.check]]
-weapon_type.value = 3
+    [[trigger.check]]
+    weapon_type.value = 3
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_GREEN_DEFAULT><SIZE 30>注意闪避，太刀侠要准备登龙了！</SIZE></STYL>"
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_GREEN_DEFAULT><SIZE 30>气刃突刺！</SIZE></STYL>"
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_GREEN_DEFAULT><SIZE 30>黑龙歼灭刀将要使用一种从天而降的刀法</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "登龙随机1"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "登龙随机2"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "登龙随机3"
 
 
 # ========== 太刀居合动作 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.fsm]
-new = { target = 3, id = 102 }
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 102 }
 
-[[trigger.check]]
-weapon_type.value = 3
+    [[trigger.check]]
+    weapon_type.value = 3
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_GREEN_DEFAULT><SIZE 30>居合！</SIZE></STYL>"
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_GREEN_DEFAULT><SIZE 30>居合，爽！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "居合随机1"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "居合随机2"
 
 
 # ========== 虫棍进入任务 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.quest_state]
-value = 2
+    [trigger.trigger_on.quest_state]
+    value = 2
 
-[[trigger.check]]
-weapon_type.value = 10
+    [[trigger.check]]
+    weapon_type.value = 10
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<SIZE 25>孩子别怕！我带着黑龙歼灭棍来救你了！</SIZE>"
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<SIZE 25>真黑龙棍大人要来点灯了！</SIZE>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "虫棍1"
 
 
 # ========== 虫棍红灯 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.insect_glaive_light]
-red = { new = { gt = 0 }, old = { le = 0 } }
+    [trigger.trigger_on.insect_glaive_light]
+    red = { new = { gt = 0 }, old = { le = 0 } }
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_RED_DEFAULT><SIZE 25>真黑龙棍大人已点出致命红灯，我必须马上飞圆！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "红灯"
 
 
 # ========== 虫棍白灯 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.insect_glaive_light]
-white = { new = { gt = 0 }, old = { le = 0 } }
+    [trigger.trigger_on.insect_glaive_light]
+    white = { new = { gt = 0 }, old = { le = 0 } }
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<SIZE 25>真黑龙棍大人已点出敏捷白灯，我必须马上起飞！</SIZE>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "白灯"
 
 
 # ========== 虫棍黄灯 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.insect_glaive_light]
-yellow = { new = { gt = 0 }, old = { le = 0 } }
+    [trigger.trigger_on.insect_glaive_light]
+    yellow = { new = { gt = 0 }, old = { le = 0 } }
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_ORANGE_DEFAULT><SIZE 25>真黑龙棍大人已点出沉稳黄灯，我必须马上挨肘！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "绿灯"
 
 
 # ========== 虫棍三灯 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.insect_glaive_light]
-red = { new = { gt = 0 } }
-white = { new = { gt = 0 } }
-yellow = { new = { gt = 0 } }
+    [trigger.trigger_on.insect_glaive_light]
+    red = { new = { gt = 0 } }
+    white = { new = { gt = 0 } }
+    yellow = { new = { gt = 0 } }
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_LIGHTBLUE_DEFAULT><SIZE 25>真黑龙棍大人已点出至尊三灯，传说中的耐摔王出现了！</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "三灯"
+
+
+# ========== 猎虫强化动作 ==========
+[[trigger]]
+action_mode = "random"
+
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 133 }
+
+    [[trigger.check]]
+    weapon_type.value = 10
+
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "猎虫强化"
 
 
 # ========== 盾斧瓶子充满 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.charge_blade]
-phials = { new = "full" }
+    [trigger.trigger_on.charge_blade]
+    phials = { new = "full" }
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "<STYL MOJI_LIGHTBLUE_DEFAULT><SIZE 25>瓶子充满</SIZE></STYL>"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "瓶子充满"
 
 
 # ========== 盾斧超解动作 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.fsm]
-new = { target = 3, id = 120 }
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 120 }
 
-[[trigger.check]]
-weapon_type.value = 9
+    [[trigger.check]]
+    weapon_type.value = 9
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "*超解1"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "超解"
 
 
 # ========== 盾斧电锯启用 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.charge_blade]
-power_axe_timer = { new = "enabled" }
+    [trigger.trigger_on.charge_blade]
+    power_axe_timer = { new = "enabled" }
 
-[[trigger.check]]
-weapon_type.value = 9
-
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "*开电锯"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "开电锯"
 
 
 # ========== 盾斧红盾启用 ==========
 [[trigger]]
 action_mode = "random"
 
-[trigger.trigger_on.charge_blade]
-shield_charge_timer = { new = { gt = 0 }, old = { le = 0 } }
+    [trigger.trigger_on.charge_blade]
+    shield_charge_timer = { new = { gt = 0 }, old = { le = 0 } }
 
-[[trigger.check]]
-weapon_type.value = 9
-
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "*开红盾"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "开红盾"
 
 
 # ========== 使用道具 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.use_item]
-item_id = 23
+    [trigger.trigger_on.use_item]
+    item_id = 23
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "*使用了怪力药丸"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "使用了怪力药丸"
 
 
 # ========== 使用衣装 ==========
 [[trigger]]
 action_mode = "sequential_all"
 
-[trigger.trigger_on.use_item]
-item_id = 131
+    [trigger.trigger_on.use_item]
+    item_id = 131
 
-[[trigger.action]]
-cmd = "SendChatMessage"
-param = "*使用了回避衣装"
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "使用了回避衣装"
+
 
 # 开发中/计划开发
 
