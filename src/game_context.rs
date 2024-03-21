@@ -9,7 +9,7 @@ pub struct Context {
     pub chat_command: Option<ChatCommand>,
     pub quest_state: i32,
     pub longsword_level: i32,
-    pub weapon_type: i32,
+    pub weapon_type: WeaponType,
     pub fsm: Fsm,
     pub use_item_id: i32,
     pub insect_glaive: InsectGlaive,

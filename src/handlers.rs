@@ -49,7 +49,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.weapon_type != last_ctx.weapon_type {
-            debug!("on weapon_type changed");
+            debug!("on weapon_type changed from {:?} to {:?}", last_ctx.weapon_type, ctx.weapon_type);
             tx_send_or_break!(tx.send(Event::WeaponTypeChanged {
                 new: ctx.weapon_type,
                 old: last_ctx.weapon_type,
@@ -57,7 +57,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.fsm != last_ctx.fsm {
-            debug!("on fsm_id changed from {:?} to {:?}", ctx.fsm, last_ctx.fsm);
+            debug!("on fsm_id changed from {:?} to {:?}", last_ctx.fsm, ctx.fsm);
             tx_send_or_break!(tx.send(Event::FsmChanged {
                 new: ctx.fsm,
                 old: last_ctx.fsm,
@@ -73,7 +73,7 @@ pub async fn event_listener(tx: Sender<Event>) {
         }
         if WeaponType::LongSword == ctx.weapon_type {
             if ctx.longsword_level != last_ctx.longsword_level {
-                debug!("on longsword_level changed");
+                debug!("on longsword_level changed from {} to {}", last_ctx.longsword_level, ctx.longsword_level);
                 tx_send_or_break!(tx.send(Event::LongswordLevelChanged {
                     new: ctx.longsword_level,
                     old: last_ctx.longsword_level,

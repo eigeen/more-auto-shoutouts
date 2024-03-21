@@ -20,12 +20,9 @@ impl LongswordCondition {
                     if let Event::LongswordLevelChanged {
                         new: new_event,
                         old: old_event,
-                        ctx,
+                        ctx: _,
                     } = event
                     {
-                        if ctx.weapon_type != 3 {
-                            return false;
-                        }
                         if let Some(new) = &new {
                             if new != new_event {
                                 return false;

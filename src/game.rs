@@ -1,5 +1,8 @@
 use log::{debug, info};
-use mhw_toolkit::{game_util, util};
+use mhw_toolkit::{
+    game_util::{self, WeaponType},
+    util,
+};
 use once_cell::sync::Lazy;
 
 use crate::game_context::{ChargeBlade, ChatCommand, Fsm, InsectGlaive, SpecializedTool};
@@ -53,11 +56,12 @@ pub fn get_longsword_level() -> i32 {
     util::get_value_with_offset(WEAPON_DATA_BASE, LONGSWORD_OFFSETS).unwrap_or(99)
 }
 
-pub fn get_weapon_type() -> i32 {
-    match util::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS) {
+pub fn get_weapon_type() -> WeaponType {
+    let weapon_type_id = match util::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS) {
         Some(w) => w,
         None => 0,
-    }
+    };
+    WeaponType::from_i32(weapon_type_id)
 }
 
 pub fn get_fsm() -> Fsm {

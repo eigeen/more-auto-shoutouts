@@ -17,7 +17,7 @@ impl WeaponTypeCondition {
         let trigger_fn: Box<dyn Fn(&Event) -> bool + Send> = if let TriggerCondition::WeaponType { value } = cond {
             Box::new(move |event| {
                 if let Event::WeaponTypeChanged { new, .. } = event {
-                    &value == new
+                    &value == &new.as_i32()
                 } else {
                     false
                 }
@@ -36,7 +36,7 @@ impl WeaponTypeCondition {
     pub fn new_check(cond: &CheckCondition) -> Self {
         let cond = cond.clone();
         let check_fn: Box<dyn Fn(&Context) -> bool + Send> = if let CheckCondition::WeaponType { value } = cond {
-            Box::new(move |ctx| value == ctx.weapon_type)
+            Box::new(move |ctx| value == ctx.weapon_type.as_i32())
         } else {
             error!("internal: WeaponTypeCondition cmp_fn 参数不正确");
             Box::new(|_| false)

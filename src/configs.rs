@@ -195,6 +195,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use mhw_toolkit::game_util::WeaponType;
+
     use super::*;
 
     const FILE_PATH_1: &str = "mas-config.toml";
@@ -279,5 +281,11 @@ mod tests {
     fn test_load_config() {
         let cfg = load_config(FILE_PATH_1).unwrap();
         eprintln!("{:?}", cfg);
+    }
+
+    #[test]
+    fn test_valuecmp_weapon() {
+        let longsword = WeaponType::LongSword;
+        assert!(ValueCmp::EqInt(3) == longsword.as_i32());
     }
 }

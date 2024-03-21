@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
-use log::error;
-use mhw_toolkit::game_util;
+use log::{debug, error};
+use mhw_toolkit::game_util::{self, WeaponType};
 use once_cell::sync::Lazy;
 use rand::Rng;
 
@@ -19,14 +19,39 @@ static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| ga
 
 #[derive(Debug)]
 pub enum Event {
-    LoadTriggers { trigger_mgr: TriggerManager },
-    LongswordLevelChanged { new: i32, old: i32, ctx: Context },
-    WeaponTypeChanged { new: i32, old: i32, ctx: Context },
-    QuestStateChanged { new: i32, old: i32, ctx: Context },
-    FsmChanged { new: Fsm, old: Fsm, ctx: Context },
-    UseItem { item_id: i32, ctx: Context },
-    InsectGlaive { ctx: Context },
-    ChargeBlade { ctx: Context },
+    LoadTriggers {
+        trigger_mgr: TriggerManager,
+    },
+    LongswordLevelChanged {
+        new: i32,
+        old: i32,
+        ctx: Context,
+    },
+    WeaponTypeChanged {
+        new: WeaponType,
+        old: WeaponType,
+        ctx: Context,
+    },
+    QuestStateChanged {
+        new: i32,
+        old: i32,
+        ctx: Context,
+    },
+    FsmChanged {
+        new: Fsm,
+        old: Fsm,
+        ctx: Context,
+    },
+    UseItem {
+        item_id: i32,
+        ctx: Context,
+    },
+    InsectGlaive {
+        ctx: Context,
+    },
+    ChargeBlade {
+        ctx: Context,
+    },
 }
 
 impl Event {
@@ -176,7 +201,7 @@ pub fn parse_trigger(t_cfg: &configs::Trigger) -> Trigger {
     t_cfg.check.iter().map(parse_check_condition).for_each(|c| t.add_check_condition(c));
     t_cfg.action.iter().filter_map(parse_event).for_each(|e| t.add_action(e));
 
-    log::debug!("注册trigger check({}), action({})", t.check_conditions.len(), t.actions.len());
+    debug!("注册trigger check({}), action({})", t.check_conditions.len(), t.actions.len());
 
     t
 }

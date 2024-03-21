@@ -16,9 +16,6 @@ impl InsectGlaiveCondition {
             if let TriggerCondition::InsectGlaiveLight { red, white, yellow } = cond {
                 Box::new(move |event| {
                     if let Event::InsectGlaive { ctx } = event {
-                        if ctx.weapon_type != 10 {
-                            return false;
-                        }
                         compare_cfg_ctx(
                             &red,
                             ctx.insect_glaive.attack_timer,
