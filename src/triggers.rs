@@ -112,16 +112,16 @@ impl Trigger {
     }
 
     fn execute_next_event(&self) {
-        let event_idx = self.event_idx.fetch_add(1, Ordering::SeqCst);
+        let mut event_idx = self.event_idx.fetch_add(1, Ordering::SeqCst);
         if event_idx >= self.actions.len() as i32 {
             self.event_idx.store(0, Ordering::SeqCst);
+            event_idx = 0;
         }
         self.actions[event_idx as usize].execute();
     }
 
     fn execute_random_one(&self) {
-        let mut rng = rand::thread_rng();
-        let idx = rng.gen_range(0..self.actions.len());
+        let idx = rand::thread_rng().gen_range(0..self.actions.len());
         self.actions[idx].execute();
     }
 
