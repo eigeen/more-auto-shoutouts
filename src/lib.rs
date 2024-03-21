@@ -1,12 +1,10 @@
 use std::sync::Once;
 
-use log::{debug, error, info, LevelFilter};
+use log::{error, info, LevelFilter};
 use mhw_toolkit::logger::MHWLogger;
 use once_cell::sync::Lazy;
-use snafu::prelude::*;
 use tokio::signal;
 use tokio::sync::mpsc;
-use triggers::Trigger;
 use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE};
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
 
@@ -21,12 +19,6 @@ mod triggers;
 
 static MAIN_THREAD_ONCE: Once = Once::new();
 // static mut TOKIO_RUNTIME: Option<Arc<Mutex<Runtime>>> = None;
-
-#[derive(Debug, Snafu)]
-enum Error {
-    #[snafu(display("Config error: {}", source))]
-    Config { source: configs::ConfigError },
-}
 
 struct App {}
 
@@ -43,33 +35,31 @@ fn init_log() {
     log::set_max_level(LevelFilter::Debug);
 }
 
-fn parse_config(cfg: &configs::Config) -> Vec<Trigger> {
-    cfg.trigger.iter().map(|t| triggers::parse_trigger(t)).collect::<Vec<_>>()
-}
-
-fn main_entry() -> Result<(), Error> {
+fn main_entry() -> Result<(), String> {
     init_log();
     let runtime = tokio::runtime::Runtime::new().unwrap();
     info!("版本: {}", env!("CARGO_PKG_VERSION"));
 
     let _app = App::new();
-    let config = configs::load_config("./nativePC/plugins/mas-config.toml").context(ConfigSnafu)?;
-    debug!("load config: {:?}", config);
-    info!("已加载配置文件");
-    // 注册触发器
-    let mut trigger_mgr = TriggerManager::new();
-    parse_config(&config).into_iter().for_each(|trigger| {
-        trigger_mgr.register_trigger(trigger);
-    });
 
     runtime.block_on(async {
         let (tx, rx) = mpsc::channel(128);
         // 事件处理器
-        tokio::spawn(async move { handlers::event_handler(rx, trigger_mgr).await });
+        tokio::spawn(async move { handlers::event_handler(rx).await });
         // 事件监听器
-        tokio::spawn(async move { handlers::event_listener(tx).await });
+        let tx1 = tx.clone();
+        tokio::spawn(async move { handlers::event_listener(tx1).await });
+        // 首次自动加载配置文件
+        match handlers::load_triggers() {
+            Ok(trigger_mgr) => {
+                let _ = tx.send(triggers::Event::LoadTriggers { trigger_mgr });
+            }
+            Err(e) => {
+                error!("加载配置失败：{}", e);
+            }
+        };
 
-        // block
+        // 于此处阻塞
         signal::ctrl_c().await.unwrap();
     });
 
@@ -84,7 +74,7 @@ extern "stdcall" fn DllMain(dll_module: HINSTANCE, call_reason: DWORD, reserved:
             MAIN_THREAD_ONCE.call_once(|| {
                 std::thread::spawn(|| {
                     if let Err(e) = main_entry() {
-                        error!("发生错误，已终止程序：{}", e);
+                        error!("发生致命错误，已终止插件运行：{}", e);
                     };
                 });
             });

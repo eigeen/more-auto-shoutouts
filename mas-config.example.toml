@@ -193,7 +193,7 @@ weapon_type.value = 9
 
 [[trigger.action]]
 cmd = "SendChatMessage"
-param = "<STYL MOJI_LIGHTBLUE_DEFAULT><SIZE 25>超解1</SIZE></STYL>"
+param = "*超解1"
 
 
 # ========== 盾斧电锯启用 ==========
@@ -208,7 +208,7 @@ weapon_type.value = 9
 
 [[trigger.action]]
 cmd = "SendChatMessage"
-param = "<STYL MOJI_LIGHTBLUE_DEFAULT><SIZE 25>开电锯</SIZE></STYL>"
+param = "*开电锯"
 
 
 # ========== 盾斧红盾启用 ==========
@@ -223,7 +223,31 @@ weapon_type.value = 9
 
 [[trigger.action]]
 cmd = "SendChatMessage"
-param = "<STYL MOJI_LIGHTBLUE_DEFAULT><SIZE 25>开红盾</SIZE></STYL>"
+param = "*开红盾"
+
+
+# ========== 使用道具 ==========
+[[trigger]]
+action_mode = "sequential_all"
+
+[trigger.trigger_on.use_item]
+item_id = 23
+
+[[trigger.action]]
+cmd = "SendChatMessage"
+param = "*使用了怪力药丸"
+
+
+# ========== 使用衣装 ==========
+[[trigger]]
+action_mode = "sequential_all"
+
+[trigger.trigger_on.use_item]
+item_id = 131
+
+[[trigger.action]]
+cmd = "SendChatMessage"
+param = "*使用了回避衣装"
 
 # 开发中/计划开发
 

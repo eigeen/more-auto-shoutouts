@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
+use log::error;
 use mhw_toolkit::game_util;
 use once_cell::sync::Lazy;
 use rand::Rng;
@@ -7,7 +8,8 @@ use rand::Rng;
 use crate::{
     conditions::{
         charge_blade::ChargeBladeCondition, fsmid::FsmIDCondition, insect_glaive::InsectGlaiveCondition,
-        longsword::LongswordCondition, quest_state::QuestStateCondition, weapon_id::WeaponTypeCondition,
+        longsword::LongswordCondition, quest_state::QuestStateCondition, use_item::UseItemCondition,
+        weapon_id::WeaponTypeCondition,
     },
     configs::{self, ActionMode, TriggerCondition},
     game_context::{Context, Fsm},
@@ -17,10 +19,12 @@ static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| ga
 
 #[derive(Debug)]
 pub enum Event {
+    LoadTriggers { trigger_mgr: TriggerManager },
     LongswordLevelChanged { new: i32, old: i32, ctx: Context },
     WeaponTypeChanged { new: i32, old: i32, ctx: Context },
     QuestStateChanged { new: i32, old: i32, ctx: Context },
     FsmChanged { new: Fsm, old: Fsm, ctx: Context },
+    UseItem { item_id: i32, ctx: Context },
     InsectGlaive { ctx: Context },
     ChargeBlade { ctx: Context },
 }
@@ -28,12 +32,17 @@ pub enum Event {
 impl Event {
     pub fn extract_ctx(&self) -> Context {
         match self {
+            Event::LoadTriggers { .. } => {
+                error!("trying to get context from Event::LoadTriggers, panicked");
+                panic!("trying to get context from Event::LoadTriggers, panicked")
+            }
             Event::LongswordLevelChanged { ctx, .. } => ctx.clone(),
             Event::WeaponTypeChanged { ctx, .. } => ctx.clone(),
             Event::QuestStateChanged { ctx, .. } => ctx.clone(),
             Event::FsmChanged { ctx, .. } => ctx.clone(),
             Event::InsectGlaive { ctx } => ctx.clone(),
             Event::ChargeBlade { ctx } => ctx.clone(),
+            Event::UseItem { ctx, .. } => ctx.clone(),
         }
     }
 }
@@ -136,6 +145,12 @@ pub struct TriggerManager {
     triggers: Vec<Trigger>,
 }
 
+impl std::fmt::Debug for TriggerManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TriggerManager").field("triggers.len", &self.triggers.len()).finish()
+    }
+}
+
 impl TriggerManager {
     pub fn new() -> Self {
         TriggerManager { triggers: Vec::new() }
@@ -183,6 +198,7 @@ fn parse_trigger_condition(trigger_cond: &configs::TriggerCondition) -> Box<dyn 
         TriggerCondition::Fsm { .. } => Box::new(FsmIDCondition::new_trigger(&trigger_cond)),
         TriggerCondition::InsectGlaiveLight { .. } => Box::new(InsectGlaiveCondition::new_trigger(&trigger_cond)),
         TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(&trigger_cond)),
+        TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(&trigger_cond)),
     }
 }
 

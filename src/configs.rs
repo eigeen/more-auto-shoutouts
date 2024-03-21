@@ -67,6 +67,9 @@ pub enum TriggerCondition {
         new: Option<FsmConfig>,
         old: Option<FsmConfig>,
     },
+    UseItem {
+        item_id: ValueCmp,
+    },
     InsectGlaiveLight {
         red: Option<NewOldValueCmp>,
         white: Option<NewOldValueCmp>,
