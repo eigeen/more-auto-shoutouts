@@ -2,6 +2,13 @@
 
 MHW 更多定型文mod
 
+# 目录
+
+- [常见问题](https://git.eigeen.com/eigeen/more-auto-shoutouts-docs)
+- [支持功能](#支持功能)
+- [配置文件](#配置文件)
+- [编译](#编译)
+
 # 支持功能
 
 某些动作触发频率过高但又想设置，可以等后续更新冷却时间功能。
@@ -38,8 +45,18 @@ MHW 更多定型文mod
 - 双刀鬼人状态
 - 斩斧充能
 - 延迟触发
-- 冷却时间
+- 冷却时间（已实现全局，单trigger待定）
 - BUFF获取
+
+# 配置文件
+
+配置文件在使用时放置于 `<游戏根目录>/nativePC/plugins/mas-config.toml`
+
+## 结构
+
+如果能够阅读源码，推荐阅读 [configs.rs](src/configs.rs)
+
+或参考 [示例文件](mas-config.example.toml)，在此基础上修改
 
 # 编译
 
@@ -51,13 +68,3 @@ MHW 更多定型文mod
 6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger`
 
 如果你不需要log功能，则可以忽略 3-4 步，并使用 `cargo build --release` 编译。
-
-# 配置文件
-
-配置文件在使用时放置于 `<游戏根目录>/nativePC/plugins/mas-config.toml`
-
-## 结构
-
-如果能够阅读源码，推荐阅读 [configs.rs](src/configs.rs)
-
-或参考 [示例文件](mas-config.example.toml)，在此基础上修改

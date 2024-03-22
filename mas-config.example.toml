@@ -1,3 +1,10 @@
+# 全局触发器冷却时间
+# 冷却时间内，同一个触发器的消息将会被忽略
+# 默认1秒用于防抖
+#
+# 触发器支持单独设置冷却时间覆盖全局设置，具体查看触发器设置
+trigger_cd = 1
+
 # ========== 太刀白刃 ==========
 [[trigger]]
 # 当有多个事件时，事件调用模式
@@ -5,6 +12,9 @@
 # sequential_one: 顺序执行下一个
 # random: 随机选取执行
 action_mode = "sequential_all"
+# 触发冷却时间
+# 该项设置后，会覆盖全局设置`trigger_cd`
+cooldown = 1
 
     # 触发条件设置（有且仅有一个）
     [trigger.trigger_on.longsword_level_changed]

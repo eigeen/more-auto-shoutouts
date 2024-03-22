@@ -6,8 +6,7 @@ fn use_logger() {
 }
 
 #[cfg(not(feature = "use_logger"))]
-fn use_logger() {
-}
+fn use_logger() {}
 
 fn main() {
     use_logger()

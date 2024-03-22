@@ -1,7 +1,8 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 
-use log::{debug, error};
-use mhw_toolkit::game_util::{self, WeaponType};
+use chrono::{DateTime, Duration, Utc};
+use log::debug;
+use mhw_toolkit::game_util;
 use once_cell::sync::Lazy;
 use rand::Rng;
 
@@ -12,65 +13,11 @@ use crate::{
         weapon_id::WeaponTypeCondition,
     },
     configs::{self, ActionMode, TriggerCondition},
-    game_context::{Context, Fsm},
+    event::Event,
+    game_context::Context,
 };
 
 static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| game_util::ChatMessageSender::new());
-
-#[derive(Debug)]
-pub enum Event {
-    LoadTriggers {
-        trigger_mgr: TriggerManager,
-    },
-    LongswordLevelChanged {
-        new: i32,
-        old: i32,
-        ctx: Context,
-    },
-    WeaponTypeChanged {
-        new: WeaponType,
-        old: WeaponType,
-        ctx: Context,
-    },
-    QuestStateChanged {
-        new: i32,
-        old: i32,
-        ctx: Context,
-    },
-    FsmChanged {
-        new: Fsm,
-        old: Fsm,
-        ctx: Context,
-    },
-    UseItem {
-        item_id: i32,
-        ctx: Context,
-    },
-    InsectGlaive {
-        ctx: Context,
-    },
-    ChargeBlade {
-        ctx: Context,
-    },
-}
-
-impl Event {
-    pub fn extract_ctx(&self) -> Context {
-        match self {
-            Event::LoadTriggers { .. } => {
-                error!("trying to get context from Event::LoadTriggers, panicked");
-                panic!("trying to get context from Event::LoadTriggers, panicked")
-            }
-            Event::LongswordLevelChanged { ctx, .. } => ctx.clone(),
-            Event::WeaponTypeChanged { ctx, .. } => ctx.clone(),
-            Event::QuestStateChanged { ctx, .. } => ctx.clone(),
-            Event::FsmChanged { ctx, .. } => ctx.clone(),
-            Event::InsectGlaive { ctx } => ctx.clone(),
-            Event::ChargeBlade { ctx } => ctx.clone(),
-            Event::UseItem { ctx, .. } => ctx.clone(),
-        }
-    }
-}
 
 pub trait AsTriggerCondition: Send {
     fn check(&self, event: &Event) -> bool;
@@ -85,22 +32,34 @@ pub trait AsAction: Send {
 }
 
 pub struct Trigger {
+    name: Option<String>,
     actions: Vec<Box<dyn AsAction>>,
     trigger_condition: Box<dyn AsTriggerCondition>,
     check_conditions: Vec<Box<dyn AsCheckCondition>>,
-    event_mode: ActionMode,
+    action_mode: ActionMode,
     event_idx: AtomicI32,
+    cooldown: Option<SingleCoolDown>,
 }
 
 impl Trigger {
     pub fn new(event_mode: ActionMode, trigger_condition: Box<dyn AsTriggerCondition>) -> Trigger {
         Trigger {
+            name: None,
             actions: Vec::new(),
             trigger_condition,
             check_conditions: Vec::new(),
-            event_mode,
+            action_mode: event_mode,
             event_idx: AtomicI32::new(0),
+            cooldown: None,
         }
+    }
+
+    pub fn set_name(&mut self, name: &str) {
+        self.name = Some(name.to_string())
+    }
+
+    pub fn set_cooldown(&mut self, cooldown: SingleCoolDown) {
+        self.cooldown = Some(cooldown);
     }
 
     pub fn add_action(&mut self, event: Box<dyn AsAction>) {
@@ -114,7 +73,7 @@ impl Trigger {
     fn execute_next_event(&self) {
         let mut event_idx = self.event_idx.fetch_add(1, Ordering::SeqCst);
         if event_idx >= self.actions.len() as i32 {
-            self.event_idx.store(0, Ordering::SeqCst);
+            self.event_idx.store(1, Ordering::SeqCst);
             event_idx = 0;
         }
         self.actions[event_idx as usize].execute();
@@ -125,7 +84,7 @@ impl Trigger {
         self.actions[idx].execute();
     }
 
-    pub fn process(&self, event: &Event) {
+    pub fn process(&mut self, event: &Event) {
         // 判断触发器
         if !self.trigger_condition.check(event) {
             return;
@@ -135,7 +94,14 @@ impl Trigger {
         if !checked {
             return;
         }
-        match self.event_mode {
+        // 判断冷却
+        if let Some(cd) = &mut self.cooldown {
+            if !cd.check_set_cooldown() {
+                return;
+            }
+        }
+        // 执行行为
+        match self.action_mode {
             ActionMode::SequentialAll => self.actions.iter().for_each(|e| {
                 e.execute();
             }),
@@ -185,8 +151,8 @@ impl TriggerManager {
         self.triggers.push(trigger);
     }
 
-    pub fn process_all(&self, event: &Event) {
-        self.triggers.iter().for_each(|t| {
+    pub fn process_all(&mut self, event: &Event) {
+        self.triggers.iter_mut().for_each(|t| {
             t.process(event);
         });
     }
@@ -198,10 +164,18 @@ pub fn parse_trigger(t_cfg: &configs::Trigger) -> Trigger {
     let t_cond = parse_trigger_condition(&t_cfg.trigger_on);
 
     let mut t = Trigger::new(event_mode, t_cond);
+    if let Some(name) = &t_cfg.name {
+        t.set_name(name);
+    }
+    t.set_cooldown(SingleCoolDown::new(t_cfg.cooldown.unwrap_or(0.0)));
     t_cfg.check.iter().map(parse_check_condition).for_each(|c| t.add_check_condition(c));
     t_cfg.action.iter().filter_map(parse_event).for_each(|e| t.add_action(e));
 
-    debug!("注册trigger check({}), action({})", t.check_conditions.len(), t.actions.len());
+    let debug_name: &str = match &t.name {
+        Some(n) => n,
+        None => "unnamed",
+    };
+    debug!("注册 trigger `{}` check({}), action({})", debug_name, t.check_conditions.len(), t.actions.len());
 
     t
 }
@@ -231,5 +205,41 @@ fn parse_event(event_cfg: &configs::Action) -> Option<Box<dyn AsAction>> {
     match event_cfg.cmd {
         configs::Command::SendChatMessage => Some(Box::new(SendChatMessageEvent::new(&event_cfg.param))),
         configs::Command::SystemMessage => None,
+    }
+}
+
+/// 单点冷却时间管理器
+pub struct SingleCoolDown {
+    /// 冷却时间（秒）
+    cooldown: f32,
+    /// 冷却记录，记录上次触发时间
+    record: Option<DateTime<Utc>>,
+}
+
+impl SingleCoolDown {
+    pub fn new(cooldown: f32) -> Self {
+        Self { cooldown, record: None }
+    }
+
+    pub fn check_set_cooldown(&mut self) -> bool {
+        let now = Utc::now();
+        let cd_dur = Duration::try_milliseconds((self.cooldown * 1000.0) as i64).unwrap_or_default();
+        let last_time = match self.record {
+            Some(record) => record,
+            None => {
+                let default_record = now - cd_dur;
+                self.record = Some(default_record);
+                default_record
+            }
+        };
+
+        let expected_expire_time = last_time + cd_dur;
+        if expected_expire_time <= now {
+            // cd已过期
+            self.record = Some(now);
+            true
+        } else {
+            false
+        }
     }
 }

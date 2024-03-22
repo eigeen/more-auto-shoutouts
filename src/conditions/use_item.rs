@@ -1,9 +1,6 @@
 use log::error;
 
-use crate::{
-    configs::TriggerCondition,
-    triggers::{AsTriggerCondition, Event},
-};
+use crate::{configs::TriggerCondition, event::Event, triggers::AsTriggerCondition};
 
 pub struct UseItemCondition {
     trigger_fn: Box<dyn Fn(&Event) -> bool + Send>,

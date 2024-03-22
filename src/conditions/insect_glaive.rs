@@ -2,7 +2,8 @@ use log::error;
 
 use crate::{
     configs::{NewOldValueCmp, TriggerCondition},
-    triggers::{AsTriggerCondition, Event},
+    event::Event,
+    triggers::AsTriggerCondition,
 };
 
 pub struct InsectGlaiveCondition {

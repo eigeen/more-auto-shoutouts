@@ -18,7 +18,19 @@ pub enum ConfigError {
 /// 配置文件
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
+    /// 全局事件冷却时间
+    ///
+    /// 默认应用于所有触发器
+    ///
+    /// 可被触发器设置覆盖
+    #[serde(default = "default_event_cd")]
+    pub trigger_cd: f32,
+    #[serde(default)]
     pub trigger: Vec<Trigger>,
+}
+
+fn default_event_cd() -> f32 {
+    0.5
 }
 
 /// 触发器
@@ -35,6 +47,9 @@ pub struct Trigger {
     /// 触发器检查条件：可选，可多个，需要全部满足才能触发
     #[serde(default)]
     pub check: Vec<CheckCondition>,
+    /// 冷却时间（秒）
+    /// 覆盖全局设置
+    pub cooldown: Option<f32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -175,9 +190,17 @@ where
     P: AsRef<Path>,
 {
     let s: String = fs::read_to_string(path).context(IoSnafu)?;
-    let config: Config = toml::from_str(&s).context(ParseSnafu)?;
+    let mut config: Config = toml::from_str(&s).context(ParseSnafu)?;
     // 预验证config
-    for t in config.trigger.iter() {
+    if config.trigger_cd < 0.0 {
+        return Err(ConfigError::Validate {
+            reason: "event_cd 不能小于0.0".to_string(),
+        });
+    }
+    for t in config.trigger.iter_mut() {
+        // 为Trigger应用全局默认设置
+        t.cooldown = Some(t.cooldown.unwrap_or(config.trigger_cd));
+        // 检查触发器条件
         match &t.trigger_on {
             TriggerCondition::LongswordLevelChanged { new, old } => {
                 if new.is_none() && old.is_none() {

@@ -1,7 +1,8 @@
 use crate::{
     configs,
+    event::Event,
     game_context::{ChargeBlade, ChatCommand, Context, InsectGlaive},
-    triggers::{self, Event, Trigger},
+    triggers::{self, Trigger},
     tx_send_or_break, TriggerManager,
 };
 
@@ -49,12 +50,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             }));
         }
         if ctx.weapon_type != last_ctx.weapon_type {
-            debug!(
-                "on {} from {:?} to {:?}",
-                "Event::WeaponTypeChanged",
-                last_ctx.weapon_type,
-                ctx.weapon_type
-            );
+            debug!("on {} from {:?} to {:?}", "Event::WeaponTypeChanged", last_ctx.weapon_type, ctx.weapon_type);
             tx_send_or_break!(tx.send(Event::WeaponTypeChanged {
                 new: ctx.weapon_type,
                 old: last_ctx.weapon_type,
@@ -80,9 +76,7 @@ pub async fn event_listener(tx: Sender<Event>) {
             if ctx.longsword_level != last_ctx.longsword_level {
                 debug!(
                     "on {} from {} to {}",
-                    "Event::LongswordLevelChanged",
-                    last_ctx.longsword_level,
-                    ctx.longsword_level
+                    "Event::LongswordLevelChanged", last_ctx.longsword_level, ctx.longsword_level
                 );
                 tx_send_or_break!(tx.send(Event::LongswordLevelChanged {
                     new: ctx.longsword_level,
@@ -141,7 +135,8 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
                 info!("已加载新的TriggerManager");
                 continue;
             }
-            if let Some(mgr) = &trigger_mgr {
+            if let Some(mgr) = &mut trigger_mgr {
+                // 处理
                 mgr.process_all(&e);
             }
         };

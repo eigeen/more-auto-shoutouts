@@ -2,7 +2,8 @@ use log::error;
 
 use crate::{
     configs::{NewOldValueCmp, TriggerCondition, ValueCmp},
-    triggers::{AsTriggerCondition, Event},
+    event::Event,
+    triggers::AsTriggerCondition,
 };
 
 pub struct ChargeBladeCondition {

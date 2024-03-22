@@ -2,8 +2,9 @@ use log::error;
 
 use crate::{
     configs::{CheckCondition, TriggerCondition},
+    event::Event,
     game_context::Context,
-    triggers::{AsCheckCondition, AsTriggerCondition, Event},
+    triggers::{AsCheckCondition, AsTriggerCondition},
 };
 
 pub struct FsmIDCondition {

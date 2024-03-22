@@ -6,10 +6,12 @@ use tokio::sync::mpsc;
 use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE};
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
 
+use crate::event::Event;
 use crate::triggers::TriggerManager;
 
 mod conditions;
 mod configs;
+mod event;
 mod game;
 mod game_context;
 mod handlers;
@@ -66,7 +68,7 @@ fn main_entry() -> Result<(), String> {
         // 首次自动加载配置文件
         match handlers::load_triggers() {
             Ok(trigger_mgr) => {
-                if let Err(e) = tx.send(triggers::Event::LoadTriggers { trigger_mgr }).await {
+                if let Err(e) = tx.send(Event::LoadTriggers { trigger_mgr }).await {
                     error!("加载配置失败：{}", e);
                 };
             }
