@@ -1,3 +1,9 @@
+# Mod主仓库
+# https://github.com/eigeen/more-auto-shoutouts
+#
+# Q&A文档
+# https://git.eigeen.com/eigeen/more-auto-shoutouts-docs
+
 # 全局触发器冷却时间
 # 冷却时间内，同一个触发器的消息将会被忽略
 # 默认1秒用于防抖
@@ -29,6 +35,7 @@ cooldown = 1
     # 触发事件设置
     [[trigger.action]]
     cmd = "SendChatMessage"
+    # 彩色文本为游戏内支持，彩色文本参考Q&A文档
     param = "白刃"
 
 # ========== 太刀黄刃 ==========

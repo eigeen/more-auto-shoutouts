@@ -152,12 +152,22 @@ impl PartialEq<i32> for ValueCmp {
     fn eq(&self, other: &i32) -> bool {
         match self {
             ValueCmp::EqInt(val) => val == other,
-            ValueCmp::Cmp { gt, ge, lt, le, ne, .. } => {
+            ValueCmp::Cmp {
+                gt,
+                ge,
+                lt,
+                le,
+                ne,
+                r#in,
+                nin,
+            } => {
                 (gt.map_or(true, |v| other > &v))
                     && (ge.map_or(true, |v| other >= &v))
                     && (lt.map_or(true, |v| other < &v))
                     && (le.map_or(true, |v| other <= &v))
                     && (ne.map_or(true, |v| other != &v))
+                    && (r#in.as_ref().map_or(true, |v| v.contains(other)))
+                    && (nin.as_ref().map_or(true, |v| !v.contains(other)))
             }
             ValueCmp::Special(_) => false,
         }
@@ -287,7 +297,7 @@ mod tests {
         };
         assert!(b == a as i32);
 
-        let a: i32 = 50;
+        let a: i32 = 20;
         let b = ValueCmp::Cmp {
             gt: None,
             ge: None,
@@ -297,7 +307,7 @@ mod tests {
             r#in: Some(vec![10, 50, 90]),
             nin: None,
         };
-        assert!(b == a);
+        assert!(b != a);
     }
 
     #[test]
