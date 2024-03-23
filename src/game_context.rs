@@ -4,8 +4,9 @@ use mhw_toolkit::game_util::WeaponType;
 /// 游戏内状态记录上下文
 ///
 /// 记录当前游戏内某些值
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Context {
+    pub plugin_enabled: bool,
     pub chat_command: Option<ChatCommand>,
     pub quest_state: i32,
     pub longsword_level: i32,
@@ -50,6 +51,24 @@ impl Context {
     }
 }
 
+impl Default for Context {
+    fn default() -> Self {
+        Self {
+            plugin_enabled: true,
+            chat_command: Default::default(),
+            quest_state: Default::default(),
+            longsword_level: Default::default(),
+            weapon_type: Default::default(),
+            fsm: Default::default(),
+            use_item_id: Default::default(),
+            insect_glaive: Default::default(),
+            charge_blade: Default::default(),
+            specialized_tool: Default::default(),
+            last_ctx: Default::default(),
+        }
+    }
+}
+
 /// 动作
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Fsm {
@@ -60,12 +79,16 @@ pub struct Fsm {
 #[derive(Clone, Debug, PartialEq)]
 pub enum ChatCommand {
     ReloadConfig,
+    Enable,
+    Disable,
 }
 
 impl ChatCommand {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "reload" => Some(ChatCommand::ReloadConfig),
+            "enable" => Some(ChatCommand::Enable),
+            "disable" => Some(ChatCommand::Disable),
             _ => None,
         }
     }

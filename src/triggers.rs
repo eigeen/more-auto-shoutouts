@@ -37,7 +37,7 @@ pub struct Trigger {
     trigger_condition: Box<dyn AsTriggerCondition>,
     check_conditions: Vec<Box<dyn AsCheckCondition>>,
     action_mode: ActionMode,
-    event_idx: AtomicI32,
+    action_idx: AtomicI32,
     cooldown: Option<SingleCoolDown>,
 }
 
@@ -49,7 +49,7 @@ impl Trigger {
             trigger_condition,
             check_conditions: Vec::new(),
             action_mode: event_mode,
-            event_idx: AtomicI32::new(0),
+            action_idx: AtomicI32::new(0),
             cooldown: None,
         }
     }
@@ -71,9 +71,9 @@ impl Trigger {
     }
 
     fn execute_next_event(&self) {
-        let mut event_idx = self.event_idx.fetch_add(1, Ordering::SeqCst);
+        let mut event_idx = self.action_idx.fetch_add(1, Ordering::SeqCst);
         if event_idx >= self.actions.len() as i32 {
-            self.event_idx.store(1, Ordering::SeqCst);
+            self.action_idx.store(1, Ordering::SeqCst);
             event_idx = 0;
         }
         self.actions[event_idx as usize].execute();
@@ -84,7 +84,20 @@ impl Trigger {
         self.actions[idx].execute();
     }
 
+    fn reset_action_idx(&self) {
+        self.action_idx.store(0, Ordering::SeqCst);
+    }
+
     pub fn process(&mut self, event: &Event) {
+        // 全局条件判断
+        if let Event::QuestStateChanged { new, old, .. } = event {
+            // 进入据点或离开据点时
+            if *new == 1 || *old == 1 {
+                if let ActionMode::SequentialOne = self.action_mode {
+                    self.reset_action_idx();
+                }
+            }
+        }
         // 判断触发器
         if !self.trigger_condition.check(event) {
             return;

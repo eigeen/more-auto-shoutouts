@@ -39,7 +39,22 @@ pub async fn event_listener(tx: Sender<Event>) {
                     game_util::show_game_message("已重载配置");
                     tx_send_or_break!(tx.send(Event::LoadTriggers { trigger_mgr }));
                 }
+                ChatCommand::Enable => {
+                    debug!("on {}", "ChatCommand::Enable");
+                    info!("接收用户命令：{:?}", cmd);
+                    game_util::show_game_message("已启用插件");
+                    ctx.plugin_enabled = true;
+                }
+                ChatCommand::Disable => {
+                    debug!("on {}", "ChatCommand::Disable");
+                    info!("接收用户命令：{:?}", cmd);
+                    game_util::show_game_message("已禁用插件");
+                    ctx.plugin_enabled = false;
+                }
             }
+        }
+        if !ctx.plugin_enabled {
+            continue;
         }
         if ctx.quest_state != last_ctx.quest_state {
             debug!("on {}", "Event::QuestStateChanged");
