@@ -273,6 +273,18 @@ action_mode = "sequential_all"
     param = "使用了回避衣装"
 
 
+# ========== 造成伤害 ==========
+[[trigger]]
+name = "造成伤害"
+action_mode = "sequential_all"
+
+    [trigger.trigger_on.damage]
+    value = { gt = 200 }
+
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "造成了200以上伤害"
+
 # 开发中/计划开发
 
 # [[trigger]]

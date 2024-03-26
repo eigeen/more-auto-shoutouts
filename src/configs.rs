@@ -97,6 +97,9 @@ pub enum TriggerCondition {
         phials: Option<NewOldValueCmp>,
         sword_power: Option<NewOldValueCmp>,
     },
+    Damage {
+        value: ValueCmp,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

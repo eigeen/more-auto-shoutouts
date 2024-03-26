@@ -15,9 +15,12 @@ mod event;
 mod game;
 mod game_context;
 mod handlers;
+mod triggers;
+
+#[cfg(feature = "hooks")]
+mod hooks;
 #[cfg(feature = "use_logger")]
 mod logger;
-mod triggers;
 
 static MAIN_THREAD_ONCE: Once = Once::new();
 // static mut TOKIO_RUNTIME: Option<Arc<Mutex<Runtime>>> = None;
@@ -62,12 +65,20 @@ fn main_entry() -> Result<(), String> {
     let _app = App::new();
 
     runtime.block_on(async {
-        let (tx, rx) = mpsc::channel(128);
+        let (tx, rx) = mpsc::channel(1024);
         // 事件处理器
         tokio::spawn(async move { handlers::event_handler(rx).await });
         // 事件监听器
         let tx1 = tx.clone();
         tokio::spawn(async move { handlers::event_listener(tx1).await });
+        // 钩子注册与钩子事件监听转换器
+        #[cfg(feature = "hooks")]
+        {
+            let hooks_rx = hooks::init_hooks();
+            let tx2 = tx.clone();
+            tokio::spawn(async move { hooks::event_forwarder(hooks_rx, tx2).await });
+        }
+
         // 首次自动加载配置文件
         match handlers::load_triggers() {
             Ok(trigger_mgr) => {

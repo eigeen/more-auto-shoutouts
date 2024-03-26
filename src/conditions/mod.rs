@@ -1,5 +1,6 @@
 pub mod charge_blade;
-pub mod fsmid;
+pub mod damage;
+pub mod fsm;
 pub mod insect_glaive;
 pub mod longsword;
 pub mod quest_state;

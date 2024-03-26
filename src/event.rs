@@ -44,17 +44,15 @@ pub enum Event {
     ChargeBlade {
         ctx: Context,
     },
+    Damage {
+        damage: i32,
+    },
 }
 
 impl Event {
     pub fn extract_ctx(&self) -> Context {
         match self {
-            Event::LoadTriggers { .. } => {
-                error!("trying to get context from Event::LoadTriggers, panicked");
-                // 只是防止没打出日志退出，可能大概有用吧
-                thread::sleep(std::time::Duration::from_millis(500));
-                panic!("trying to get context from Event::LoadTriggers, panicked")
-            }
+            Event::LoadTriggers { .. } => Self::panic_if_no_ctx("Event::LoadTriggers"),
             Event::LongswordLevelChanged { ctx, .. } => ctx.clone(),
             Event::WeaponTypeChanged { ctx, .. } => ctx.clone(),
             Event::QuestStateChanged { ctx, .. } => ctx.clone(),
@@ -62,6 +60,7 @@ impl Event {
             Event::InsectGlaive { ctx } => ctx.clone(),
             Event::ChargeBlade { ctx } => ctx.clone(),
             Event::UseItem { ctx, .. } => ctx.clone(),
+            Event::Damage { .. } => Self::panic_if_no_ctx("Event::Damage"),
         }
     }
 
@@ -75,7 +74,15 @@ impl Event {
             Event::InsectGlaive { .. } => EventType::InsectGlaive,
             Event::ChargeBlade { .. } => EventType::ChargeBlade,
             Event::UseItem { .. } => EventType::UseItem,
+            Event::Damage { .. } => EventType::Damage,
         }
+    }
+
+    fn panic_if_no_ctx(target: &str) -> ! {
+        error!("trying to get context from {target}, panicked");
+        // 只是防止没打出日志退出，可能大概有用吧
+        thread::sleep(std::time::Duration::from_millis(500));
+        panic!("trying to get context from {target}, panicked")
     }
 }
 
@@ -90,4 +97,5 @@ pub enum EventType {
     UseItem,
     InsectGlaive,
     ChargeBlade,
+    Damage,
 }

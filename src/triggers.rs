@@ -14,9 +14,9 @@ use rand::Rng;
 
 use crate::{
     conditions::{
-        charge_blade::ChargeBladeCondition, fsmid::FsmIDCondition, insect_glaive::InsectGlaiveCondition,
-        longsword::LongswordCondition, quest_state::QuestStateCondition, use_item::UseItemCondition,
-        weapon_id::WeaponTypeCondition,
+        charge_blade::ChargeBladeCondition, damage::DamageCondition, fsm::FsmCondition,
+        insect_glaive::InsectGlaiveCondition, longsword::LongswordCondition, quest_state::QuestStateCondition,
+        use_item::UseItemCondition, weapon_id::WeaponTypeCondition,
     },
     configs::{self, ActionMode, TriggerCondition},
     event::{Event, EventType},
@@ -240,8 +240,12 @@ impl TriggerManager {
     }
 
     pub fn dispatch(&self, event: &Event) {
-        // 任务状态改变时尝试重置所有trigger的顺序计数器和CD
-        if event.event_type() == EventType::QuestStateChanged {
+        if event.event_type() == EventType::Damage {
+            log::debug!("dispatch Damage");
+        }
+        // 需要广播的消息
+        if event.event_type() == EventType::QuestStateChanged || event.event_type() == EventType::Damage {
+            log::debug!("broadcast");
             self.broadcast(event);
             return;
         }
@@ -288,7 +292,7 @@ fn register_check_condition(check_cond: &configs::CheckCondition) -> Box<dyn AsC
         configs::CheckCondition::LongswordLevel { .. } => Box::new(LongswordCondition::new_check(&check_cond)),
         configs::CheckCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_check(&check_cond)),
         configs::CheckCondition::QuestState { .. } => Box::new(QuestStateCondition::new_check(&check_cond)),
-        configs::CheckCondition::Fsm { .. } => Box::new(FsmIDCondition::new_check(&check_cond)),
+        configs::CheckCondition::Fsm { .. } => Box::new(FsmCondition::new_check(&check_cond)),
     }
 }
 
@@ -297,10 +301,11 @@ fn register_trigger_condition(trigger_cond: &configs::TriggerCondition) -> Box<d
         TriggerCondition::LongswordLevelChanged { .. } => Box::new(LongswordCondition::new_trigger(&trigger_cond)),
         TriggerCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_trigger(&trigger_cond)),
         TriggerCondition::QuestState { .. } => Box::new(QuestStateCondition::new_trigger(&trigger_cond)),
-        TriggerCondition::Fsm { .. } => Box::new(FsmIDCondition::new_trigger(&trigger_cond)),
+        TriggerCondition::Fsm { .. } => Box::new(FsmCondition::new_trigger(&trigger_cond)),
         TriggerCondition::InsectGlaiveLight { .. } => Box::new(InsectGlaiveCondition::new_trigger(&trigger_cond)),
         TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(&trigger_cond)),
         TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(&trigger_cond)),
+        TriggerCondition::Damage { .. } => Box::new(DamageCondition::new_trigger(&trigger_cond)),
     }
 }
 

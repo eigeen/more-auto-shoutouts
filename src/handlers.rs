@@ -6,7 +6,7 @@ use crate::{
     tx_send_or_break, TriggerManager,
 };
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use mhw_toolkit::game_util::{self, WeaponType};
 use std::time::Duration;
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -116,7 +116,7 @@ pub async fn event_listener(tx: Sender<Event>) {
         }
     }
 
-    warn!("Event handler stopped");
+    error!("主事件发送端已终止");
 }
 
 fn is_insect_glaive_changed(new: &InsectGlaive, old: &InsectGlaive) -> bool {
@@ -152,8 +152,12 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
             }
             if let Some(mgr) = &mut trigger_mgr {
                 // 处理
+                log::debug!("处理事件{e:?}");
                 mgr.dispatch(&e);
             }
+        } else {
+            error!("接收端错误");
+            break;
         };
     }
 }

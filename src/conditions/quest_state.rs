@@ -22,6 +22,7 @@ impl QuestStateCondition {
                 match s.as_str() {
                     "join" => ValueCmp::EqInt(2),
                     "leaved" => ValueCmp::EqInt(1),
+                    "success" => ValueCmp::EqInt(3),
                     other => {
                         error!("QuestStateCondition 值{}无定义，已拒绝条件", other);
                         return QuestStateCondition {

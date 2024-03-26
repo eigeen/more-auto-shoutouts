@@ -9,12 +9,12 @@ use crate::{
 
 use super::{CheckFn, TriggerFn};
 
-pub struct FsmIDCondition {
+pub struct FsmCondition {
     trigger_fn: TriggerFn,
     check_fn: CheckFn,
 }
 
-impl FsmIDCondition {
+impl FsmCondition {
     pub fn new_trigger(cond: &TriggerCondition) -> Self {
         let cond = cond.clone();
         let trigger_fn: TriggerFn = if let TriggerCondition::Fsm { new, old } = cond {
@@ -43,7 +43,7 @@ impl FsmIDCondition {
             Box::new(|_| false)
         };
 
-        FsmIDCondition {
+        FsmCondition {
             trigger_fn,
             check_fn: Box::new(|_| false),
         }
@@ -58,14 +58,14 @@ impl FsmIDCondition {
             Box::new(|_| false)
         };
 
-        FsmIDCondition {
+        FsmCondition {
             trigger_fn: Box::new(|_| false),
             check_fn,
         }
     }
 }
 
-impl AsTriggerCondition for FsmIDCondition {
+impl AsTriggerCondition for FsmCondition {
     fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
     }
@@ -75,7 +75,7 @@ impl AsTriggerCondition for FsmIDCondition {
     }
 }
 
-impl AsCheckCondition for FsmIDCondition {
+impl AsCheckCondition for FsmCondition {
     fn check(&self, ctx: &Context) -> bool {
         (self.check_fn)(ctx)
     }
