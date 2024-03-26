@@ -64,4 +64,30 @@ impl Event {
             Event::UseItem { ctx, .. } => ctx.clone(),
         }
     }
+
+    pub fn event_type(&self) -> EventType {
+        match self {
+            Event::LoadTriggers { .. } => EventType::LoadTriggers,
+            Event::LongswordLevelChanged { .. } => EventType::LongswordLevelChanged,
+            Event::WeaponTypeChanged { .. } => EventType::WeaponTypeChanged,
+            Event::QuestStateChanged { .. } => EventType::QuestStateChanged,
+            Event::FsmChanged { .. } => EventType::FsmChanged,
+            Event::InsectGlaive { .. } => EventType::InsectGlaive,
+            Event::ChargeBlade { .. } => EventType::ChargeBlade,
+            Event::UseItem { .. } => EventType::UseItem,
+        }
+    }
+}
+
+/// 不携带数据的事件类型
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum EventType {
+    LoadTriggers,
+    LongswordLevelChanged,
+    WeaponTypeChanged,
+    QuestStateChanged,
+    FsmChanged,
+    UseItem,
+    InsectGlaive,
+    ChargeBlade,
 }

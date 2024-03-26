@@ -17,8 +17,6 @@ const USE_ITEM_OFFSETS: &[isize] = &[0x50, 0x80, 0x80, 0x10, 0x288, 0x28E0];
 const WEAPON_DATA_BASE: *const i32 = 0x145011760 as *const i32;
 const LONGSWORD_OFFSETS: &[isize] = &[0x50, 0x468, 0x70, 0x10, 0x18, 0x2370];
 const WEAPON_OFFSETS: &[isize] = &[0x50, 0xC0, 0x8, 0x78, 0x2E8];
-const SPETIAL_TOOL_0_OFFSETS: &[isize] = &[0x50, 0xC0, 0x8, 0x78, 0x31C];
-const SPETIAL_TOOL_1_OFFSETS: &[isize] = &[0x50, 0xC0, 0x8, 0x78, 0x320];
 const WEAPON_DATA_OFFSETS: &[isize] = &[0x50, 0x76B0];
 
 const CHARGE_BLADE_BASE: *const i32 = 0x1450EA510 as *const i32;
@@ -79,7 +77,7 @@ pub fn get_fsm() -> Fsm {
 pub fn get_use_item_id() -> i32 {
     match util::get_value_with_offset(PLAYER_BASE, USE_ITEM_OFFSETS) {
         Some(v) => v,
-        None => 0,
+        None => -1,
     }
 }
 

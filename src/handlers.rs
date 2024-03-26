@@ -21,7 +21,7 @@ pub async fn event_listener(tx: Sender<Event>) {
         ctx.store_last_context();
         ctx.update_context();
 
-        let last_ctx = ctx.clone().last_ctx.unwrap();
+        let last_ctx = ctx.last_ctx.as_ref().unwrap();
         // 检查事件
         // 消息事件
         if let Some(cmd) = &ctx.chat_command {
@@ -152,7 +152,7 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
             }
             if let Some(mgr) = &mut trigger_mgr {
                 // 处理
-                mgr.process_all(&e);
+                mgr.dispatch(&e);
             }
         };
     }
@@ -175,7 +175,7 @@ pub fn load_triggers() -> Result<TriggerManager, String> {
 }
 
 pub fn parse_config(cfg: &configs::Config) -> Vec<Trigger> {
-    cfg.trigger.iter().map(|t| triggers::parse_trigger(t)).collect::<Vec<_>>()
+    cfg.trigger.iter().map(|t| triggers::register_trigger(t)).collect::<Vec<_>>()
 }
 
 #[macro_export]

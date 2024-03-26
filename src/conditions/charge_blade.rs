@@ -2,18 +2,20 @@ use log::error;
 
 use crate::{
     configs::{NewOldValueCmp, TriggerCondition, ValueCmp},
-    event::Event,
+    event::{Event, EventType},
     triggers::AsTriggerCondition,
 };
 
+use super::TriggerFn;
+
 pub struct ChargeBladeCondition {
-    trigger_fn: Box<dyn Fn(&Event) -> bool + Send>,
+    trigger_fn: TriggerFn,
 }
 
 impl ChargeBladeCondition {
     pub fn new_trigger(cond: &TriggerCondition) -> Self {
         let cond = cond.clone();
-        let trigger_fn: Box<dyn Fn(&Event) -> bool + Send> = if let TriggerCondition::ChargeBlade {
+        let trigger_fn: TriggerFn = if let TriggerCondition::ChargeBlade {
             sword_charge_timer,
             shield_charge_timer,
             power_axe_timer,
@@ -62,6 +64,10 @@ impl ChargeBladeCondition {
 impl AsTriggerCondition for ChargeBladeCondition {
     fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
+    }
+
+    fn event_type(&self) -> EventType {
+        EventType::ChargeBlade
     }
 }
 

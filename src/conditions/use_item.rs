@@ -1,15 +1,21 @@
 use log::error;
 
-use crate::{configs::TriggerCondition, event::Event, triggers::AsTriggerCondition};
+use crate::{
+    configs::TriggerCondition,
+    event::{Event, EventType},
+    triggers::AsTriggerCondition,
+};
+
+use super::TriggerFn;
 
 pub struct UseItemCondition {
-    trigger_fn: Box<dyn Fn(&Event) -> bool + Send>,
+    trigger_fn: TriggerFn,
 }
 
 impl UseItemCondition {
     pub fn new_trigger(cond: &TriggerCondition) -> Self {
         let cond = cond.clone();
-        let trigger_fn: Box<dyn Fn(&Event) -> bool + Send> = if let TriggerCondition::UseItem { item_id } = cond {
+        let trigger_fn: TriggerFn = if let TriggerCondition::UseItem { item_id } = cond {
             Box::new(move |event| {
                 if let Event::UseItem {
                     item_id: using_item_id, ..
@@ -32,5 +38,9 @@ impl UseItemCondition {
 impl AsTriggerCondition for UseItemCondition {
     fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
+    }
+
+    fn event_type(&self) -> EventType {
+        EventType::UseItem
     }
 }

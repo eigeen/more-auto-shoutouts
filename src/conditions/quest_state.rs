@@ -2,20 +2,22 @@ use log::error;
 
 use crate::{
     configs::{CheckCondition, TriggerCondition, ValueCmp},
-    event::Event,
+    event::{Event, EventType},
     game_context::Context,
     triggers::{AsCheckCondition, AsTriggerCondition},
 };
 
+use super::{CheckFn, TriggerFn};
+
 pub struct QuestStateCondition {
-    trigger_fn: Box<dyn Fn(&Event) -> bool + Send>,
-    check_fn: Box<dyn Fn(&Context) -> bool + Send>,
+    trigger_fn: TriggerFn,
+    check_fn: CheckFn,
 }
 
 impl QuestStateCondition {
     pub fn new_trigger(cond: &TriggerCondition) -> Self {
         let cond = cond.clone();
-        let trigger_fn: Box<dyn Fn(&Event) -> bool + Send> = if let TriggerCondition::QuestState { value } = cond {
+        let trigger_fn: TriggerFn = if let TriggerCondition::QuestState { value } = cond {
             let value = if let ValueCmp::Special(s) = value {
                 match s.as_str() {
                     "join" => ValueCmp::EqInt(2),
@@ -51,7 +53,7 @@ impl QuestStateCondition {
 
     pub fn new_check(cond: &CheckCondition) -> Self {
         let cond = cond.clone();
-        let check_fn: Box<dyn Fn(&Context) -> bool + Send> = if let CheckCondition::QuestState { value } = cond {
+        let check_fn: CheckFn = if let CheckCondition::QuestState { value } = cond {
             Box::new(move |ctx| value == ctx.quest_state)
         } else {
             error!("internal: QuestStateCondition cmp_fn 参数不正确");
@@ -68,6 +70,10 @@ impl QuestStateCondition {
 impl AsTriggerCondition for QuestStateCondition {
     fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
+    }
+
+    fn event_type(&self) -> EventType {
+        EventType::QuestStateChanged
     }
 }
 
