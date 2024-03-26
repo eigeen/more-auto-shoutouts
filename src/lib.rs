@@ -15,6 +15,8 @@ mod event;
 mod game;
 mod game_context;
 mod handlers;
+#[cfg(feature = "use_logger")]
+mod logger;
 mod triggers;
 
 static MAIN_THREAD_ONCE: Once = Once::new();
@@ -31,10 +33,11 @@ impl App {
 #[cfg(feature = "use_logger")]
 mod use_logger {
     use log::LevelFilter;
-    use mhw_toolkit::logger::MHWLogger;
     use once_cell::sync::Lazy;
 
-    static LOGGER: Lazy<MHWLogger> = Lazy::new(|| MHWLogger::new("More Auto Shoutouts"));
+    use crate::logger::MASLogger;
+
+    static LOGGER: Lazy<MASLogger> = Lazy::new(|| MASLogger::new());
 
     pub fn init_log() {
         log::set_logger(&*LOGGER).unwrap();
