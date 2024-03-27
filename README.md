@@ -46,10 +46,8 @@ MHW 更多定型文mod
 
 ## 计划功能
 
-- 双刀鬼人状态
 - 斩斧充能
 - 延迟触发
-- 冷却时间（已实现全局，单trigger待定）
 - BUFF获取
 
 # 配置文件
@@ -69,6 +67,12 @@ MHW 更多定型文mod
 3. 拉取MHW前置（本人fork版本内含一个FFI静态库，用于该插件发送日志） [https://github.com/eigeen/MHW-QuestLoader](https://github.com/eigeen/MHW-QuestLoader)，编译并获取 `loader.lib` 和 `LoaderFFI.lib` 两个静态库
 4. 将静态库放在 `more-auto-shoutouts/lib` 目录内
 5. 确保当前工作目录包含 `mhw-toolkit` 和 `more-auto-shoutouts`
-6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger`
+6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger,hooks`
 
 如果你不需要log功能，则可以忽略 3-4 步，并使用 `cargo build --release` 编译。
+
+## Features
+
+- `use_logger` 启用log功能：将会静态链接到 `stracker's loader` 的日志输出模块
+- `hooks` 启用钩子功能：启用MinHook钩子事件监听，额外增加一些可选配置项
+  - 钩子功能提供攻击伤害获取，订阅怪物创建和销毁事件
