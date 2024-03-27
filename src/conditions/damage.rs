@@ -1,43 +1,57 @@
+use std::{collections::HashMap, sync::Mutex};
+
 use log::error;
 
-use super::TriggerFn;
 use crate::{
-    configs::TriggerCondition,
+    configs::{TriggerCondition, ValueCmp},
     event::{Event, EventType},
-    triggers::AsTriggerCondition,
+    triggers::{ActionContext, AsTriggerCondition},
 };
 
 pub struct DamageCondition {
-    trigger_fn: TriggerFn,
+    trigger_value: ValueCmp,
+    action_ctx: Mutex<ActionContext>,
 }
 
 impl DamageCondition {
     pub fn new_trigger(cond: &TriggerCondition) -> Self {
-        let cond = cond.clone();
-        let trigger_fn: TriggerFn = if let TriggerCondition::Damage { value } = cond {
-            Box::new(move |event| {
-                if let Event::Damage { damage } = event {
-                    log::debug!("Event::Damage damage = {damage}");
-                    &value == damage
-                } else {
-                    false
-                }
-            })
-        } else {
-            error!("internal: DamageCondition cmp_fn 参数不正确");
-            Box::new(|_| false)
+        let mut instance = DamageCondition {
+            trigger_value: ValueCmp::EqInt(0),
+            action_ctx: Mutex::new(None),
         };
 
-        DamageCondition { trigger_fn }
+        let cond = cond.clone();
+        if let TriggerCondition::Damage { value } = cond {
+            instance.trigger_value = value;
+        } else {
+            error!("internal: DamageCondition cmp_fn 参数不正确");
+        }
+
+        instance
     }
 }
 
 impl AsTriggerCondition for DamageCondition {
     fn check(&self, event: &Event) -> bool {
-        (self.trigger_fn)(event)
+        if let Event::Damage { damage, .. } = event {
+            if &self.trigger_value == damage {
+                let mut context = HashMap::new();
+                context.insert("damage".to_string(), damage.to_string());
+                self.action_ctx.lock().unwrap().replace(context);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 
     fn event_type(&self) -> EventType {
         EventType::Damage
+    }
+
+    fn get_action_context(&self) -> ActionContext {
+        self.action_ctx.lock().unwrap().clone()
     }
 }

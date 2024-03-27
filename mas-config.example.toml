@@ -166,7 +166,7 @@ action_mode = "random"
 
     [[trigger.action]]
     cmd = "SendChatMessage"
-    param = "绿灯"
+    param = "黄灯"
 
 
 # ========== 虫棍三灯 ==========
@@ -273,17 +273,23 @@ action_mode = "sequential_all"
     param = "使用了回避衣装"
 
 
-# ========== 造成伤害 ==========
+# ========== 真蓄造成伤害 ==========
 [[trigger]]
-name = "造成伤害"
 action_mode = "sequential_all"
 
     [trigger.trigger_on.damage]
     value = { gt = 200 }
 
+    [[trigger.check]]
+    weapon_type.value = 0
+
+    [[trigger.check]]
+    fsm.value = { target = 3, id = 137 }
+
     [[trigger.action]]
     cmd = "SendChatMessage"
-    param = "造成了200以上伤害"
+    param = "强击真三蓄！造成了{{damage}}伤害"
+
 
 # 开发中/计划开发
 

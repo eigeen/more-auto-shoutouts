@@ -3,50 +3,53 @@ use log::error;
 use crate::{
     configs::{NewOldValueCmp, TriggerCondition},
     event::{Event, EventType},
-    triggers::AsTriggerCondition,
+    triggers::{AsTriggerCondition, SharedContext},
 };
 
-use super::TriggerFn;
-
 pub struct InsectGlaiveCondition {
-    trigger_fn: TriggerFn,
+    shared_ctx: SharedContext,
+    cond_red: Option<NewOldValueCmp>,
+    cond_white: Option<NewOldValueCmp>,
+    cond_yellow: Option<NewOldValueCmp>,
 }
 
 impl InsectGlaiveCondition {
-    pub fn new_trigger(cond: &TriggerCondition) -> Self {
+    pub fn new_trigger(cond: &TriggerCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
-        let trigger_fn: TriggerFn = if let TriggerCondition::InsectGlaiveLight { red, white, yellow } = cond {
-            Box::new(move |event| {
-                if let Event::InsectGlaive { ctx } = event {
-                    compare_cfg_ctx(
-                        &red,
-                        ctx.insect_glaive.attack_timer,
-                        ctx.last_ctx.as_ref().unwrap().insect_glaive.attack_timer,
-                    ) && compare_cfg_ctx(
-                        &white,
-                        ctx.insect_glaive.speed_timer,
-                        ctx.last_ctx.as_ref().unwrap().insect_glaive.speed_timer,
-                    ) && compare_cfg_ctx(
-                        &yellow,
-                        ctx.insect_glaive.defense_timer,
-                        ctx.last_ctx.as_ref().unwrap().insect_glaive.defense_timer,
-                    )
-                } else {
-                    false
-                }
-            })
+        if let TriggerCondition::InsectGlaiveLight { red, white, yellow } = cond {
+            InsectGlaiveCondition {
+                shared_ctx,
+                cond_red: red,
+                cond_white: white,
+                cond_yellow: yellow,
+            }
         } else {
-            error!("internal: InsectGlaiveCondition cmp_fn 参数不正确");
-            Box::new(|_| false)
-        };
-
-        InsectGlaiveCondition { trigger_fn }
+            error!("internal: InsectGlaiveCondition: invalid cond {:?}", cond);
+            panic!("Invalid cond")
+        }
     }
 }
 
 impl AsTriggerCondition for InsectGlaiveCondition {
     fn check(&self, event: &Event) -> bool {
-        (self.trigger_fn)(event)
+        let ctx = self.shared_ctx.read().unwrap();
+        if let Event::InsectGlaive = event {
+            compare_cfg_ctx(
+                &self.cond_red,
+                ctx.insect_glaive.attack_timer,
+                ctx.last_ctx.as_ref().unwrap().insect_glaive.attack_timer,
+            ) && compare_cfg_ctx(
+                &self.cond_white,
+                ctx.insect_glaive.speed_timer,
+                ctx.last_ctx.as_ref().unwrap().insect_glaive.speed_timer,
+            ) && compare_cfg_ctx(
+                &self.cond_yellow,
+                ctx.insect_glaive.defense_timer,
+                ctx.last_ctx.as_ref().unwrap().insect_glaive.defense_timer,
+            )
+        } else {
+            false
+        }
     }
 
     fn event_type(&self) -> EventType {

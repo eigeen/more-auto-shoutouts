@@ -3,8 +3,7 @@ use log::error;
 use crate::{
     configs::{CheckCondition, TriggerCondition},
     event::{Event, EventType},
-    game_context::Context,
-    triggers::{AsCheckCondition, AsTriggerCondition},
+    triggers::{AsCheckCondition, AsTriggerCondition, SharedContext},
 };
 
 use super::{CheckFn, TriggerFn};
@@ -12,17 +11,17 @@ use super::{CheckFn, TriggerFn};
 pub struct LongswordCondition {
     trigger_fn: TriggerFn,
     check_fn: CheckFn,
+    shared_ctx: SharedContext,
 }
 
 impl LongswordCondition {
-    pub fn new_trigger(cond: &TriggerCondition) -> Self {
+    pub fn new_trigger(cond: &TriggerCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
         let trigger_fn: TriggerFn = if let TriggerCondition::LongswordLevelChanged { new, old } = cond {
             Box::new(move |event| {
                 if let Event::LongswordLevelChanged {
                     new: new_event,
                     old: old_event,
-                    ctx: _,
                 } = event
                 {
                     if let Some(new) = &new {
@@ -48,10 +47,11 @@ impl LongswordCondition {
         LongswordCondition {
             trigger_fn,
             check_fn: Box::new(|_| false),
+            shared_ctx,
         }
     }
 
-    pub fn new_check(cond: &CheckCondition) -> Self {
+    pub fn new_check(cond: &CheckCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
         let check_fn: CheckFn = if let CheckCondition::LongswordLevel { value } = cond {
             Box::new(move |ctx| {
@@ -68,6 +68,7 @@ impl LongswordCondition {
         LongswordCondition {
             trigger_fn: Box::new(|_| false),
             check_fn,
+            shared_ctx,
         }
     }
 }
@@ -83,7 +84,7 @@ impl AsTriggerCondition for LongswordCondition {
 }
 
 impl AsCheckCondition for LongswordCondition {
-    fn check(&self, ctx: &Context) -> bool {
-        (self.check_fn)(ctx)
+    fn check(&self) -> bool {
+        (self.check_fn)(&self.shared_ctx.read().unwrap())
     }
 }

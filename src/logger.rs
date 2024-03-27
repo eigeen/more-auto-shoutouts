@@ -16,9 +16,9 @@ impl LoggerConfig {
         }
     }
 
-    pub fn set_module_level(&mut self, module: &str, level: mhw_toolkit::logger::LogLevel) {
-        self.module_levels.insert(module.to_string(), level);
-    }
+    // pub fn set_module_level(&mut self, module: &str, level: mhw_toolkit::logger::LogLevel) {
+    //     self.module_levels.insert(module.to_string(), level);
+    // }
 
     pub fn get_level(&self, module: &str) -> Option<log::Level> {
         self.module_levels.get(module).map(|m| m.clone().into())
