@@ -65,7 +65,7 @@ MHW 更多定型文mod
 1. 拉取工具库 [https://github.com/eigeen/mhw-toolkit](https://github.com/eigeen/mhw-toolkit)
 2. 在同一目录下，拉取本仓库内容
 3. 拉取MHW前置（本人fork版本内含一个FFI静态库，用于该插件发送日志） [https://github.com/eigeen/MHW-QuestLoader](https://github.com/eigeen/MHW-QuestLoader)，编译并获取 `loader.lib` 和 `LoaderFFI.lib` 两个静态库
-4. 将静态库放在 `mhw-toolkit/lib` 目录内
+4. 将静态库放在 `more-auto-shoutouts/lib` 目录内
 5. 确保当前工作目录包含 `mhw-toolkit` 和 `more-auto-shoutouts`
 6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger,hooks`
 
