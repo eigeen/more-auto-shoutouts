@@ -2,29 +2,32 @@ use crate::{
     configs,
     event::Event,
     game_context::{ChargeBlade, ChatCommand, Context, InsectGlaive},
-    triggers::{self, Trigger},
+    triggers::{self, SharedContext, Trigger},
     tx_send_or_break, TriggerManager,
 };
 
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use mhw_toolkit::game_util::{self, WeaponType};
-use std::time::Duration;
-use tokio::sync::mpsc::{Receiver, Sender};
+use std::{sync::Arc, time::Duration};
+use tokio::sync::{
+    mpsc::{Receiver, Sender},
+    RwLock,
+};
 
 /// 事件监听器
 pub async fn event_listener(tx: Sender<Event>) {
-    let mut ctx = Context::default();
+    let shared_ctx = Arc::new(RwLock::new(Context::default()));
     loop {
         // 每秒20次事件检查
         tokio::time::sleep(Duration::from_millis(50)).await;
         // 更新上下文
-        ctx.store_last_context();
-        ctx.update_context();
+        shared_ctx.write().await.update_context();
 
-        let last_ctx = ctx.clone().last_ctx.unwrap();
+        let ctx = shared_ctx.read().await;
+        let last_ctx = ctx.last_ctx.as_ref().unwrap();
         // 检查事件
         // 消息事件
-        if let Some(cmd) = &ctx.chat_command {
+        if let Some(cmd) = &shared_ctx.read().await.chat_command {
             match cmd {
                 ChatCommand::ReloadConfig => {
                     debug!("on {}", "ChatCommand::ReloadConfig");
@@ -43,25 +46,27 @@ pub async fn event_listener(tx: Sender<Event>) {
                     debug!("on {}", "ChatCommand::Enable");
                     info!("接收用户命令：{:?}", cmd);
                     game_util::show_game_message("已启用插件");
-                    ctx.plugin_enabled = true;
+                    shared_ctx.write().await.plugin_enabled = true;
                 }
                 ChatCommand::Disable => {
                     debug!("on {}", "ChatCommand::Disable");
                     info!("接收用户命令：{:?}", cmd);
                     game_util::show_game_message("已禁用插件");
-                    ctx.plugin_enabled = false;
+                    shared_ctx.write().await.plugin_enabled = false;
                 }
             }
         }
         if !ctx.plugin_enabled {
             continue;
         }
+        // 同步上下文
+        tx_send_or_break!(tx.send(Event::UpdateContext { ctx: ctx.clone() }));
+
         if ctx.quest_state != last_ctx.quest_state {
             debug!("on {}", "Event::QuestStateChanged");
             tx_send_or_break!(tx.send(Event::QuestStateChanged {
                 new: ctx.quest_state,
                 old: last_ctx.quest_state,
-                ctx: ctx.clone()
             }));
         }
         if ctx.weapon_type != last_ctx.weapon_type {
@@ -69,7 +74,6 @@ pub async fn event_listener(tx: Sender<Event>) {
             tx_send_or_break!(tx.send(Event::WeaponTypeChanged {
                 new: ctx.weapon_type,
                 old: last_ctx.weapon_type,
-                ctx: ctx.clone()
             }));
         }
         if ctx.fsm != last_ctx.fsm {
@@ -77,14 +81,12 @@ pub async fn event_listener(tx: Sender<Event>) {
             tx_send_or_break!(tx.send(Event::FsmChanged {
                 new: ctx.fsm,
                 old: last_ctx.fsm,
-                ctx: ctx.clone()
             }));
         }
         if ctx.use_item_id > 0 && ctx.use_item_id < 3000 && ctx.use_item_id != last_ctx.use_item_id {
             debug!("on {} id = {}", "Event::UseItem", ctx.use_item_id);
             tx_send_or_break!(tx.send(Event::UseItem {
                 item_id: ctx.use_item_id,
-                ctx: ctx.clone()
             }));
         }
         if WeaponType::LongSword == ctx.weapon_type {
@@ -96,7 +98,6 @@ pub async fn event_listener(tx: Sender<Event>) {
                 tx_send_or_break!(tx.send(Event::LongswordLevelChanged {
                     new: ctx.longsword_level,
                     old: last_ctx.longsword_level,
-                    ctx: ctx.clone()
                 }));
             }
         } else if WeaponType::InsectGlaive == ctx.weapon_type {
@@ -104,19 +105,19 @@ pub async fn event_listener(tx: Sender<Event>) {
             let old = &last_ctx.insect_glaive;
             if is_insect_glaive_changed(new, old) {
                 debug!("on {}", "Event::InsectGlaive",);
-                tx_send_or_break!(tx.send(Event::InsectGlaive { ctx: ctx.clone() }));
+                tx_send_or_break!(tx.send(Event::InsectGlaive));
             }
         } else if WeaponType::ChargeBlade == ctx.weapon_type {
             let new = &ctx.charge_blade;
             let old = &last_ctx.charge_blade;
             if is_charge_blade_changed(new, old) {
                 debug!("on {}", "Event::ChargeBlade",);
-                tx_send_or_break!(tx.send(Event::ChargeBlade { ctx: ctx.clone() }));
+                tx_send_or_break!(tx.send(Event::ChargeBlade));
             }
         }
     }
 
-    warn!("Event handler stopped");
+    error!("主事件发送端已终止");
 }
 
 fn is_insect_glaive_changed(new: &InsectGlaive, old: &InsectGlaive) -> bool {
@@ -151,9 +152,16 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
                 continue;
             }
             if let Some(mgr) = &mut trigger_mgr {
+                if let Event::UpdateContext { ctx } = e {
+                    mgr.update_ctx(&ctx);
+                    continue;
+                }
                 // 处理
-                mgr.process_all(&e);
+                mgr.dispatch(&e);
             }
+        } else {
+            error!("接收端错误");
+            break;
         };
     }
 }
@@ -167,15 +175,22 @@ pub fn load_triggers() -> Result<TriggerManager, String> {
     debug!("load config: {:?}", config);
     info!("已加载配置文件");
     // 注册触发器
-    let mut trigger_mgr = TriggerManager::new();
-    parse_config(&config).into_iter().for_each(|trigger| {
+    let shared_ctx = Arc::new(std::sync::RwLock::new(Context::default()));
+    let mut trigger_mgr = TriggerManager::new(shared_ctx.clone());
+    parse_config(&config, shared_ctx.clone()).into_iter().for_each(|trigger| {
         trigger_mgr.register_trigger(trigger);
     });
     Ok(trigger_mgr)
 }
 
-pub fn parse_config(cfg: &configs::Config) -> Vec<Trigger> {
-    cfg.trigger.iter().map(|t| triggers::parse_trigger(t)).collect::<Vec<_>>()
+pub fn parse_config(cfg: &configs::Config, shared_ctx: SharedContext) -> Vec<Trigger> {
+    cfg.trigger
+        .iter()
+        .map(move |t| {
+            let shared_ctx_clone = Arc::clone(&shared_ctx);
+            triggers::register_trigger(t, shared_ctx_clone)
+        })
+        .collect::<Vec<_>>()
 }
 
 #[macro_export]

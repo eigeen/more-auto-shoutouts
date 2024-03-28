@@ -22,6 +22,8 @@ pub struct Context {
 
 impl Context {
     pub fn update_context(&mut self) {
+        self.store_last_context();
+
         self.chat_command = game::get_chat_command();
         self.quest_state = game::get_quest_state();
         self.weapon_type = game::get_weapon_type();

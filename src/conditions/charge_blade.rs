@@ -2,18 +2,23 @@ use log::error;
 
 use crate::{
     configs::{NewOldValueCmp, TriggerCondition, ValueCmp},
-    event::Event,
-    triggers::AsTriggerCondition,
+    event::{Event, EventType},
+    triggers::{AsTriggerCondition, SharedContext},
 };
 
 pub struct ChargeBladeCondition {
-    trigger_fn: Box<dyn Fn(&Event) -> bool + Send>,
+    shared_ctx: SharedContext,
+    sword_charge_timer: Option<NewOldValueCmp>,
+    shield_charge_timer: Option<NewOldValueCmp>,
+    power_axe_timer: Option<NewOldValueCmp>,
+    phials: Option<NewOldValueCmp>,
+    sword_power: Option<NewOldValueCmp>,
 }
 
 impl ChargeBladeCondition {
-    pub fn new_trigger(cond: &TriggerCondition) -> Self {
+    pub fn new_trigger(cond: &TriggerCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
-        let trigger_fn: Box<dyn Fn(&Event) -> bool + Send> = if let TriggerCondition::ChargeBlade {
+        if let TriggerCondition::ChargeBlade {
             sword_charge_timer,
             shield_charge_timer,
             power_axe_timer,
@@ -21,47 +26,53 @@ impl ChargeBladeCondition {
             sword_power,
         } = cond
         {
-            Box::new(move |event| {
-                if let Event::ChargeBlade { ctx } = event {
-                    let phials = parse_cfg_phials_special(&phials, ctx.charge_blade.max_phials);
-                    let power_axe_timer = parse_cfg_power_axe_timer_special(&power_axe_timer);
-                    // 计算总电锯时长
-                    let new_total_power_axe_timer = ctx.charge_blade.phials as f32 * ctx.charge_blade.power_axe_timer;
-                    let old_total_power_axe_timer = ctx.last_ctx.as_ref().unwrap().charge_blade.phials as f32
-                        * ctx.last_ctx.as_ref().unwrap().charge_blade.power_axe_timer;
-                    compare_cfg_ctx_f32(
-                        &sword_charge_timer,
-                        ctx.charge_blade.sword_charge_timer,
-                        ctx.last_ctx.as_ref().unwrap().charge_blade.sword_charge_timer,
-                    ) && compare_cfg_ctx_f32(
-                        &shield_charge_timer,
-                        ctx.charge_blade.shield_charge_timer,
-                        ctx.last_ctx.as_ref().unwrap().charge_blade.shield_charge_timer,
-                    ) && compare_cfg_ctx(
-                        &phials,
-                        ctx.charge_blade.phials,
-                        ctx.last_ctx.as_ref().unwrap().charge_blade.phials,
-                    ) && compare_cfg_ctx_f32(
-                        &sword_power,
-                        ctx.charge_blade.sword_power,
-                        ctx.last_ctx.as_ref().unwrap().charge_blade.sword_power,
-                    ) && compare_cfg_ctx_f32(&power_axe_timer, new_total_power_axe_timer, old_total_power_axe_timer)
-                } else {
-                    false
-                }
-            })
+            return ChargeBladeCondition {
+                shared_ctx,
+                sword_charge_timer,
+                shield_charge_timer,
+                power_axe_timer,
+                phials,
+                sword_power,
+            };
         } else {
             error!("internal: InsectGlaiveCondition cmp_fn 参数不正确");
-            Box::new(|_| false)
+            panic!("internal: InsectGlaiveCondition cmp_fn 参数不正确");
         };
-
-        ChargeBladeCondition { trigger_fn }
     }
 }
 
 impl AsTriggerCondition for ChargeBladeCondition {
     fn check(&self, event: &Event) -> bool {
-        (self.trigger_fn)(event)
+        let ctx = self.shared_ctx.read().unwrap();
+        if let Event::ChargeBlade = event {
+            let phials = parse_cfg_phials_special(&self.phials, ctx.charge_blade.max_phials);
+            let power_axe_timer = parse_cfg_power_axe_timer_special(&self.power_axe_timer);
+            // 计算总电锯时长
+            let new_total_power_axe_timer = ctx.charge_blade.phials as f32 * ctx.charge_blade.power_axe_timer;
+            let old_total_power_axe_timer = ctx.last_ctx.as_ref().unwrap().charge_blade.phials as f32
+                * ctx.last_ctx.as_ref().unwrap().charge_blade.power_axe_timer;
+            compare_cfg_ctx_f32(
+                &self.sword_charge_timer,
+                ctx.charge_blade.sword_charge_timer,
+                ctx.last_ctx.as_ref().unwrap().charge_blade.sword_charge_timer,
+            ) && compare_cfg_ctx_f32(
+                &self.shield_charge_timer,
+                ctx.charge_blade.shield_charge_timer,
+                ctx.last_ctx.as_ref().unwrap().charge_blade.shield_charge_timer,
+            ) && compare_cfg_ctx(&phials, ctx.charge_blade.phials, ctx.last_ctx.as_ref().unwrap().charge_blade.phials)
+                && compare_cfg_ctx_f32(
+                    &self.sword_power,
+                    ctx.charge_blade.sword_power,
+                    ctx.last_ctx.as_ref().unwrap().charge_blade.sword_power,
+                )
+                && compare_cfg_ctx_f32(&power_axe_timer, new_total_power_axe_timer, old_total_power_axe_timer)
+        } else {
+            false
+        }
+    }
+
+    fn event_type(&self) -> EventType {
+        EventType::ChargeBlade
     }
 }
 

@@ -11,8 +11,6 @@ MHW 更多定型文mod
 
 # 支持功能
 
-某些动作触发频率过高但又想设置，可以等后续更新冷却时间功能。
-
 *盾斧的部分动作出现复用，可能导致误判断。后续更新会有解决方案，例如延迟触发等。*
 
 [更新日志](CHANGELOG.md)
@@ -40,12 +38,16 @@ MHW 更多定型文mod
     - 瓶子数量
     - 剑能量（瓶子外框）
 
+## 游戏内命令
+
+- `!mas reload` 重新加载配置文件（若加载失败不会覆盖当前已经加载的配置）
+- `!mas enbale` 启用插件（插件加载时默认启用）
+- `!mas disable` 禁用插件
+
 ## 计划功能
 
-- 双刀鬼人状态
 - 斩斧充能
 - 延迟触发
-- 冷却时间（已实现全局，单trigger待定）
 - BUFF获取
 
 # 配置文件
@@ -65,6 +67,12 @@ MHW 更多定型文mod
 3. 拉取MHW前置（本人fork版本内含一个FFI静态库，用于该插件发送日志） [https://github.com/eigeen/MHW-QuestLoader](https://github.com/eigeen/MHW-QuestLoader)，编译并获取 `loader.lib` 和 `LoaderFFI.lib` 两个静态库
 4. 将静态库放在 `mhw-toolkit/lib` 目录内
 5. 确保当前工作目录包含 `mhw-toolkit` 和 `more-auto-shoutouts`
-6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger`
+6. 在 `more-auto-shoutouts` 目录内运行 `cargo build --release --features use_logger,hooks`
 
 如果你不需要log功能，则可以忽略 3-4 步，并使用 `cargo build --release` 编译。
+
+## Features
+
+- `use_logger` 启用log功能：将会静态链接到 `stracker's loader` 的日志输出模块
+- `hooks` 启用钩子功能：启用MinHook钩子事件监听，额外增加一些可选配置项
+  - 钩子功能提供攻击伤害获取，订阅怪物创建和销毁事件
