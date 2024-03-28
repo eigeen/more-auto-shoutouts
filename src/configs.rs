@@ -50,6 +50,8 @@ pub struct Trigger {
     /// 冷却时间（秒）
     /// 覆盖全局设置
     pub cooldown: Option<f32>,
+    /// 记录触发次数
+    pub enable_cnt: Option<bool>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
