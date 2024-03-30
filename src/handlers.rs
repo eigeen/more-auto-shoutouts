@@ -9,25 +9,20 @@ use crate::{
 use log::{debug, error, info};
 use mhw_toolkit::game_util::{self, WeaponType};
 use std::{sync::Arc, time::Duration};
-use tokio::sync::{
-    mpsc::{Receiver, Sender},
-    RwLock,
-};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 /// 事件监听器
 pub async fn event_listener(tx: Sender<Event>) {
-    let shared_ctx = Arc::new(RwLock::new(Context::default()));
+    let mut ctx = Context::default();
     loop {
         // 每秒20次事件检查
         tokio::time::sleep(Duration::from_millis(50)).await;
         // 更新上下文
-        shared_ctx.write().await.update_context();
+        ctx.update_context();
 
-        let ctx = shared_ctx.read().await;
-        let last_ctx = ctx.last_ctx.as_ref().unwrap();
         // 检查事件
         // 消息事件
-        if let Some(cmd) = &shared_ctx.read().await.chat_command {
+        if let Some(cmd) = &ctx.chat_command {
             match cmd {
                 ChatCommand::ReloadConfig => {
                     debug!("on {}", "ChatCommand::ReloadConfig");
@@ -46,19 +41,23 @@ pub async fn event_listener(tx: Sender<Event>) {
                     debug!("on {}", "ChatCommand::Enable");
                     info!("接收用户命令：{:?}", cmd);
                     game_util::show_game_message("已启用插件");
-                    shared_ctx.write().await.plugin_enabled = true;
+                    ctx.plugin_enabled = true;
                 }
                 ChatCommand::Disable => {
                     debug!("on {}", "ChatCommand::Disable");
                     info!("接收用户命令：{:?}", cmd);
                     game_util::show_game_message("已禁用插件");
-                    shared_ctx.write().await.plugin_enabled = false;
+                    ctx.plugin_enabled = false;
                 }
             }
         }
         if !ctx.plugin_enabled {
             continue;
         }
+
+        // 只读部分
+        let last_ctx = ctx.last_ctx.as_ref().unwrap();
+
         // 同步上下文
         tx_send_or_break!(tx.send(Event::UpdateContext { ctx: ctx.clone() }));
 
