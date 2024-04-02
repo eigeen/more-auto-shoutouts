@@ -1,13 +1,13 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicI32, Ordering},
+        atomic::{self, AtomicI32, Ordering},
         Arc, Mutex, RwLock,
     },
 };
 
 use chrono::{DateTime, Duration, Utc};
-use log::debug;
+use log::{debug, error};
 use mhw_toolkit::game_util;
 use once_cell::sync::Lazy;
 use rand::Rng;
@@ -23,7 +23,6 @@ use crate::{
     game_context::Context,
 };
 
-type DoTriggerFn = Box<dyn Fn(&Event) + Send + Sync>;
 pub type ActionContext = Option<HashMap<String, String>>;
 pub type SharedContext = Arc<RwLock<Context>>;
 
@@ -43,11 +42,13 @@ pub trait AsCheckCondition: Send + Sync {
 
 pub trait AsAction: Send + Sync {
     fn execute(&self, context: &ActionContext);
+    fn reset(&self);
 }
 
 pub trait AsTrigger: Send + Sync {
     fn event_type(&self) -> EventType;
-    fn on_event(&self, event: &Event);
+    fn on_event(&mut self, event: &Event);
+    fn on_event_reset(&mut self);
 }
 
 pub struct TriggerBuilder {
@@ -59,6 +60,45 @@ pub struct TriggerBuilder {
     cooldown: Option<SingleCoolDown>,
     event_type: EventType,
     action_idx: AtomicI32,
+}
+
+/// wrapper of `TriggerBuilder`
+pub struct TriggerFns {
+    builder: TriggerBuilder,
+}
+
+impl TriggerFns {
+
+    pub fn new(builder: TriggerBuilder) -> Self {
+        Self { builder }
+    }
+
+    pub fn execute(&mut self, event: &Event) {
+        if !self.builder.check_conditions(event) {
+            return;
+        }
+        let action_ctx = self.builder.trigger_condition.get_action_context();
+        match self.builder.action_mode {
+            ActionMode::SequentialAll => self.builder.actions.iter().for_each(|e| {
+                e.execute(&action_ctx);
+            }),
+            ActionMode::SequentialOne => {
+                self.builder.execute_next_action(&action_ctx);
+            }
+            ActionMode::Random => {
+                self.builder.execute_random_one(&action_ctx);
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        match self.builder.action_mode {
+            ActionMode::SequentialAll => self.builder.actions.iter().for_each(|e| {
+                e.reset();
+            }),
+            _ => {}
+        }
+    }
 }
 
 impl TriggerBuilder {
@@ -99,27 +139,11 @@ impl TriggerBuilder {
     pub fn build(self) -> Trigger {
         let name = self.name.clone();
         let event_type = self.event_type.clone();
-        let do_trigger_fn: DoTriggerFn = Box::new(move |event| {
-            if !self.check_conditions(event) {
-                return;
-            }
-            let action_ctx = self.trigger_condition.get_action_context();
-            match self.action_mode {
-                ActionMode::SequentialAll => self.actions.iter().for_each(|e| {
-                    e.execute(&action_ctx);
-                }),
-                ActionMode::SequentialOne => {
-                    self.execute_next_action(&action_ctx);
-                }
-                ActionMode::Random => {
-                    self.execute_random_one(&action_ctx);
-                }
-            }
-        });
+        let trigger_fns = TriggerFns::new(self);
 
         Trigger {
             name,
-            do_trigger_fn,
+            trigger_fns,
             event_type,
         }
     }
@@ -176,7 +200,7 @@ impl TriggerBuilder {
 
 pub struct Trigger {
     name: Option<String>,
-    do_trigger_fn: DoTriggerFn,
+    trigger_fns: TriggerFns,
     event_type: EventType,
 }
 
@@ -191,18 +215,29 @@ impl AsTrigger for Trigger {
         self.event_type.clone()
     }
 
-    fn on_event(&self, event: &Event) {
-        (self.do_trigger_fn)(event)
+    fn on_event(&mut self, event: &Event) {
+        self.trigger_fns.execute(event)
+    }
+
+    /// 重置触发器触发次数
+    fn on_event_reset(&mut self) {
+        self.trigger_fns.reset()
     }
 }
 
 pub struct SendChatMessageEvent {
     msg: String,
+    cnt: AtomicI32,
 }
 
 impl SendChatMessageEvent {
-    pub fn new(msg: &str) -> Self {
-        SendChatMessageEvent { msg: msg.to_string() }
+    pub fn new(msg: &str, enabled_cnt: bool) -> Self {
+        SendChatMessageEvent { 
+            msg: msg.to_string(),
+            cnt: AtomicI32::new({
+                if enabled_cnt { -1 } else { 1 }
+            })
+        }
     }
 }
 
@@ -211,19 +246,25 @@ impl AsAction for SendChatMessageEvent {
         let mut msg = self.msg.clone();
         if let Some(context) = action_ctx {
             for (key, value) in context {
-                let placeholder = format!("{{{{{}}}}}", key);
+                let placeholder = format!("{{{{{}}}}}", key); // placeholder = "{{ key }}"
                 msg = msg.replace(&placeholder, value);
             }
         };
-
+        let cnt = self.cnt.load(atomic::Ordering::Relaxed);
+        if cnt >= 1 {
+            msg = msg.replace("%d", &self.cnt.fetch_add(1, atomic::Ordering::SeqCst).to_string());
+        }
         CHAT_MESSAGE_SENDER.send(&msg);
+    }
+    fn reset(&self) {
+        self.cnt.store(1, atomic::Ordering::SeqCst);
     }
 }
 
 /// 触发器管理
 pub struct TriggerManager {
-    triggers: HashMap<EventType, Vec<Arc<Trigger>>>,
-    all_triggers: Vec<Arc<Trigger>>,
+    triggers: HashMap<EventType, Vec<Arc<Mutex<Trigger>>>>,
+    all_triggers: Vec<Arc<Mutex<Trigger>>>,
     shared_ctx: Arc<RwLock<Context>>,
 }
 
@@ -243,16 +284,37 @@ impl TriggerManager {
     }
 
     pub fn register_trigger(&mut self, trigger: Trigger) {
-        let shared_trigger = Arc::new(trigger);
-        self.triggers
-            .entry(shared_trigger.event_type())
-            .or_insert_with(Vec::new)
-            .push(shared_trigger.clone());
+        let shared_trigger = Arc::new(Mutex::new(trigger));
+        match shared_trigger.lock() {
+            Ok(locked) => {
+                self.triggers
+                .entry(locked.event_type())
+                .or_insert_with(Vec::new)
+                .push(shared_trigger.clone());
+            }
+            Err(msg) => {
+                error!("lock error happened in register_trigger fn, {}", msg);
+            }
+        };
         self.all_triggers.push(shared_trigger);
     }
 
     pub fn broadcast(&self, event: &Event) {
-        self.all_triggers.iter().for_each(|trigger| trigger.on_event(event));
+        self.all_triggers.iter().for_each(|trigger| trigger.lock().expect("").on_event(event));
+    }
+
+    pub fn broadcast_and_reset(&self, event: &Event) {
+        self.all_triggers.iter().for_each(|trigger| {
+            match trigger.lock() {
+                Ok(mut locked) => {
+                    locked.on_event(event);
+                    locked.on_event_reset();
+                }
+                Err(msg) => {
+                    error!("lock error happened in broadcast_and_reset fn, {}", msg);
+                }
+            };
+        });
     }
 
     pub fn update_ctx(&self, ctx: &Context) {
@@ -260,16 +322,30 @@ impl TriggerManager {
         *shared_ctx = ctx.clone()
     }
 
-    pub fn dispatch(&self, event: &Event) {
+    pub fn dispatch(&mut self, event: &Event) {
         // 需要广播的消息
-        if event.event_type() == EventType::QuestStateChanged || event.event_type() == EventType::Damage {
-            self.broadcast(event);
-            return;
+        match event.event_type() {
+            EventType::QuestStateChanged => {
+                self.broadcast_and_reset(event);
+                return;
+            },
+            EventType::Damage => {
+                self.broadcast(event);
+                return;
+            }
+            _ => {}
         }
-        let triggers = self.triggers.get(&event.event_type());
+        let triggers = self.triggers.get_mut(&event.event_type());
         if let Some(triggers) = triggers {
-            triggers.iter().for_each(|trigger| {
-                trigger.on_event(event);
+            triggers.iter_mut().for_each(|trigger| {
+                match trigger.lock() {
+                    Ok(mut locked) => {
+                        locked.on_event(event);
+                    }
+                    Err(msg) => {
+                        error!("lock error happened in dispatch fn, {}", msg);
+                    }
+                }
             })
         }
     }
@@ -292,7 +368,11 @@ pub fn register_trigger(t_cfg: &configs::Trigger, shared_ctx: SharedContext) -> 
         .iter()
         .map(|check_cond| register_check_condition(check_cond, shared_ctx.clone()))
         .for_each(|c| builder.add_check_condition(c));
-    t_cfg.action.iter().filter_map(register_action).for_each(|e| builder.add_action(e));
+
+    t_cfg.action.iter().filter_map(|item| match t_cfg.enable_cnt {
+        Some(true) => register_action(item, true),
+        _ => register_action(item, false)
+    }).for_each(|e| builder.add_action(e));
 
     let debug_name: &str = match &builder.name {
         Some(n) => n,
@@ -342,9 +422,9 @@ fn register_trigger_condition(
     }
 }
 
-fn register_action(action_cfg: &configs::Action) -> Option<Box<dyn AsAction>> {
+fn register_action(action_cfg: &configs::Action, enabled_cnt: bool) -> Option<Box<dyn AsAction>> {
     match action_cfg.cmd {
-        configs::Command::SendChatMessage => Some(Box::new(SendChatMessageEvent::new(&action_cfg.param))),
+        configs::Command::SendChatMessage => Some(Box::new(SendChatMessageEvent::new(&action_cfg.param, enabled_cnt))),
         configs::Command::SystemMessage => None,
     }
 }
