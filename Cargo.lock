@@ -219,14 +219,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
 name = "memchr"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -274,12 +266,11 @@ dependencies = [
 
 [[package]]
 name = "more-auto-shoutouts"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "chrono",
  "libc",
  "log",
- "macros",
  "mhw_toolkit",
  "minhook-sys",
  "once_cell",
