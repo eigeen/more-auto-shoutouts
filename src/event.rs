@@ -7,6 +7,7 @@ use crate::{
 
 /// 事件
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Event {
     LoadTriggers { trigger_mgr: TriggerManager },
     UpdateContext { ctx: Context },
