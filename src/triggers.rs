@@ -233,12 +233,11 @@ pub struct SendChatMessageEvent {
 
 impl SendChatMessageEvent {
     pub fn new(msg: &str, enabled_cnt: bool) -> Self {
-        let ret = SendChatMessageEvent { 
+        SendChatMessageEvent { 
             msg: msg.to_string(),
             cnt: AtomicI32::new(1),
             enabled_cnt
-        };
-        ret
+        }
     }
 }
 
