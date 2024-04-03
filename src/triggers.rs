@@ -324,12 +324,16 @@ impl TriggerManager {
 
     pub fn dispatch(&mut self, event: &Event) {
         // 需要广播的消息
-        match event.event_type() {
-            EventType::QuestStateChanged => {
-                self.broadcast_and_reset(event);
+        match event {
+            Event::QuestStateChanged { new, .. } => {
+                if new == &1 {
+                    self.broadcast_and_reset(event);
+                } else {
+                    self.broadcast(event);
+                }
                 return;
-            },
-            EventType::Damage => {
+            }
+            Event::Damage { .. } => {
                 self.broadcast(event);
                 return;
             }

@@ -62,7 +62,7 @@ pub async fn event_listener(tx: Sender<Event>) {
         tx_send_or_break!(tx.send(Event::UpdateContext { ctx: ctx.clone() }));
 
         if ctx.quest_state != last_ctx.quest_state {
-            debug!("on {}", "Event::QuestStateChanged");
+            debug!("on {} from {:?} to {:?}", "Event::QuestStateChanged", last_ctx.quest_state, ctx.quest_state);
             tx_send_or_break!(tx.send(Event::QuestStateChanged {
                 new: ctx.quest_state,
                 old: last_ctx.quest_state,
