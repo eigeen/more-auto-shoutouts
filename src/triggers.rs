@@ -228,15 +228,15 @@ impl AsTrigger for Trigger {
 pub struct SendChatMessageEvent {
     msg: String,
     cnt: AtomicI32,
+    enabled_cnt: bool
 }
 
 impl SendChatMessageEvent {
     pub fn new(msg: &str, enabled_cnt: bool) -> Self {
         SendChatMessageEvent { 
             msg: msg.to_string(),
-            cnt: AtomicI32::new({
-                if enabled_cnt { -1 } else { 1 }
-            })
+            cnt: AtomicI32::new(1),
+            enabled_cnt
         }
     }
 }
@@ -250,14 +250,15 @@ impl AsAction for SendChatMessageEvent {
                 msg = msg.replace(&placeholder, value);
             }
         };
-        let cnt = self.cnt.load(atomic::Ordering::Relaxed);
-        if cnt >= 1 {
+        if self.enabled_cnt {
             msg = msg.replace("%d", &self.cnt.fetch_add(1, atomic::Ordering::SeqCst).to_string());
         }
         CHAT_MESSAGE_SENDER.send(&msg);
     }
     fn reset(&self) {
-        self.cnt.store(1, atomic::Ordering::SeqCst);
+        if self.enabled_cnt {
+            self.cnt.store(1, atomic::Ordering::SeqCst);
+        }
     }
 }
 
@@ -372,7 +373,7 @@ pub fn register_trigger(t_cfg: &configs::Trigger, shared_ctx: SharedContext) -> 
         .iter()
         .map(|check_cond| register_check_condition(check_cond, shared_ctx.clone()))
         .for_each(|c| builder.add_check_condition(c));
-
+    
     t_cfg.action.iter().filter_map(|item| match t_cfg.enable_cnt {
         Some(true) => register_action(item, true),
         _ => register_action(item, false)
