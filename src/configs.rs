@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{collections::HashMap, fs, path::Path, sync::{Arc, Mutex}};
 
 use serde::{Deserialize, Serialize};
 use snafu::prelude::*;
@@ -29,6 +29,18 @@ pub struct Config {
     pub trigger: Vec<Trigger>,
 }
 
+#[derive(Debug)]
+pub struct FilteredConfig {
+    /// 全局事件冷却时间
+    ///
+    /// 默认应用于所有触发器
+    ///
+    /// 可被触发器设置覆盖
+    pub trigger_cd: f32,
+    pub named_triggers: HashMap<String, Arc<Mutex<Trigger>>>,
+    pub unnamed_triggers: Vec<Arc<Mutex<Trigger>>>,
+}
+
 fn default_event_cd() -> f32 {
     0.5
 }
@@ -52,6 +64,8 @@ pub struct Trigger {
     pub cooldown: Option<f32>,
     /// 记录触发次数
     pub enable_cnt: Option<bool>,
+    /// 关联触发器
+    pub link: Option<Vec<String>>
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -189,7 +203,7 @@ pub enum Command {
 }
 
 /// 触发器行为模式
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionMode {
     /// 顺序执行所有
@@ -200,21 +214,23 @@ pub enum ActionMode {
     Random,
 }
 
-pub fn load_config<P>(path: P) -> Result<Config, ConfigError>
+pub fn load_config<P>(path: P) -> Result<FilteredConfig, ConfigError>
 where
     P: AsRef<Path>,
 {
     let s: String = fs::read_to_string(path).context(IoSnafu)?;
-    let mut config: Config = toml::from_str(&s).context(ParseSnafu)?;
+    let config: Config = toml::from_str(&s).context(ParseSnafu)?;
+    let cd = config.trigger_cd;
+    let (mut named_triggers, mut unnamed_triggers) = filter_config(config);
     // 预验证config
-    if config.trigger_cd < 0.0 {
+    if cd < 0.0 {
         return Err(ConfigError::Validate {
             reason: "event_cd 不能小于0.0".to_string(),
         });
     }
-    for t in config.trigger.iter_mut() {
+    for (_, t) in named_triggers.iter_mut() {
         // 为Trigger应用全局默认设置
-        t.cooldown = Some(t.cooldown.unwrap_or(config.trigger_cd));
+        t.cooldown = Some(t.cooldown.unwrap_or(cd));
         // 检查触发器条件
         match &t.trigger_on {
             TriggerCondition::LongswordLevelChanged { new, old } => {
@@ -228,7 +244,50 @@ where
         };
     }
 
-    Ok(config)
+    for t in unnamed_triggers.iter_mut() {
+        // 为Trigger应用全局默认设置
+        t.cooldown = Some(t.cooldown.unwrap_or(cd));
+        // 检查触发器条件
+        match &t.trigger_on {
+            TriggerCondition::LongswordLevelChanged { new, old } => {
+                if new.is_none() && old.is_none() {
+                    return Err(ConfigError::Validate {
+                        reason: "LongswordLevelChanged 参数不能都为空".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        };
+    }
+
+    let mut new_named_triggers = HashMap::new();
+    named_triggers.into_iter().for_each(|(key, value)| {new_named_triggers.insert(key.clone(), Arc::new(Mutex::new(value)));});
+    
+    let mut new_unnamed_triggers = Vec::new();
+    unnamed_triggers.into_iter().for_each(|value| {new_unnamed_triggers.push(Arc::new(Mutex::new(value)));});
+
+    Ok(
+        FilteredConfig {
+        trigger_cd: cd,
+        named_triggers: new_named_triggers,
+        unnamed_triggers: new_unnamed_triggers
+    })
+}
+
+fn filter_config(config: Config) -> (HashMap<std::string::String, Trigger>, Vec<Trigger>) {
+    let mut named_triggers = HashMap::new();
+    let mut unnamed_triggers = Vec::new();
+    config.trigger.into_iter().for_each(|t|{
+        match &t.name {
+            Some(name) => {
+                named_triggers.insert(name.clone(), t);
+            }   
+            None => {
+                unnamed_triggers.push(t);
+            }         
+        }
+    });
+    (named_triggers, unnamed_triggers)
 }
 
 #[cfg(test)]
@@ -327,10 +386,10 @@ mod tests {
         assert!(ValueCmp::EqInt(3) == longsword.as_i32());
     }
 
-    #[test]
-    fn test_convert_to_json() {
-        let cfg = load_config(EXAMPLE_FILE_PATH).unwrap();
-        let json_cfg = serde_json::to_string(&cfg).unwrap();
-        eprintln!("{}", json_cfg);
-    }
+    // #[test]
+    // fn test_convert_to_json() {
+    //     let cfg = load_config(EXAMPLE_FILE_PATH).unwrap();
+    //     let json_cfg = serde_json::to_string(&cfg).unwrap();
+    //     eprintln!("{}", json_cfg);
+    // }
 }

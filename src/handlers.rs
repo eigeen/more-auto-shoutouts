@@ -2,13 +2,13 @@ use crate::{
     configs,
     event::Event,
     game_context::{ChargeBlade, ChatCommand, Context, InsectGlaive},
-    triggers::{self, SharedContext, Trigger},
+    triggers::{self, SharedContext, Trigger, TriggerProperties},
     tx_send_or_break, TriggerManager,
 };
 
 use log::{debug, error, info};
 use mhw_toolkit::game_util::{self, WeaponType};
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::mpsc::{Receiver, Sender};
 
 /// 事件监听器
@@ -176,20 +176,57 @@ pub fn load_triggers() -> Result<TriggerManager, String> {
     // 注册触发器
     let shared_ctx = Arc::new(std::sync::RwLock::new(Context::default()));
     let mut trigger_mgr = TriggerManager::new(shared_ctx.clone());
-    parse_config(&config, shared_ctx.clone()).into_iter().for_each(|trigger| {
-        trigger_mgr.register_trigger(trigger);
-    });
+
+    match parse_config(&config, shared_ctx.clone()) {
+        Ok(triggers) => {
+            triggers.into_iter().for_each(|trigger| {
+                trigger_mgr.register_trigger(trigger);
+            });
+        }
+        Err(msg) => {
+            return Err(msg)
+        }
+    }
     Ok(trigger_mgr)
 }
 
-pub fn parse_config(cfg: &configs::Config, shared_ctx: SharedContext) -> Vec<Trigger> {
-    cfg.trigger
+pub fn parse_config(cfg: &configs::FilteredConfig, shared_ctx: SharedContext) -> Result<Vec<Trigger>, String> {
+
+    let mut a = cfg.unnamed_triggers
         .iter()
-        .map(move |t| {
-            let shared_ctx_clone = Arc::clone(&shared_ctx);
-            triggers::register_trigger(t, shared_ctx_clone)
+        .map(|t| {
+            let t = t.lock().unwrap();
+            triggers::register_trigger(&t, shared_ctx.clone())
         })
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>();
+    let mut b = HashMap::new();
+    cfg.named_triggers
+    .iter()
+    .for_each(|(name, t)| {
+        let t = t.lock().unwrap();
+        b.insert(name, triggers::register_trigger(&t, shared_ctx.clone()));
+    });
+
+    cfg.named_triggers.iter().for_each(|(root_name, t)|{
+        let t = t.lock().unwrap();
+        if let Some(link_triggers) = &t.link {
+            let mut map = HashMap::with_capacity(link_triggers.len());
+            link_triggers.iter().for_each(|n| {
+                if let Some((name2, value)) = cfg.named_triggers.get_key_value(n) {
+                    if let Some(builder) = b.get(n) {
+                        map.insert(name2.clone(), Arc::new(TriggerProperties::new(value.clone(), builder.trigger_fns.get_action(0))));
+                    }
+                }
+            });
+            b.get_mut(root_name).unwrap().trigger_fns.builder.set_linked_triggers(Some(map));
+        }
+    });
+
+    let b = b.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
+    a.extend(b);
+
+    return Ok(a)
+    
 }
 
 #[macro_export]

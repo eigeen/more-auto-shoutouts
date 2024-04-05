@@ -1,8 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{self, AtomicI32, Ordering},
-        Arc, Mutex, RwLock,
+        atomic::{self, AtomicI32, Ordering}, Arc, Mutex, MutexGuard, RwLock
     },
 };
 
@@ -41,30 +40,35 @@ pub trait AsCheckCondition: Send + Sync {
 }
 
 pub trait AsAction: Send + Sync {
-    fn execute(&self, context: &ActionContext);
+    fn execute(&self, context: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>);
     fn reset(&self);
+    fn get_cnt(&self) -> i32 {
+        0
+    }
 }
 
 pub trait AsTrigger: Send + Sync {
     fn event_type(&self) -> EventType;
     fn on_event(&mut self, event: &Event);
     fn on_event_reset(&mut self);
+    fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>>;
 }
 
 pub struct TriggerBuilder {
     name: Option<String>,
-    actions: Vec<Box<dyn AsAction>>,
+    actions: Vec<Arc<Box<dyn AsAction>>>,
     trigger_condition: Box<dyn AsTriggerCondition>,
     check_conditions: Vec<Box<dyn AsCheckCondition>>,
     action_mode: ActionMode,
     cooldown: Option<SingleCoolDown>,
+    linked_triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>,
     event_type: EventType,
     action_idx: AtomicI32,
 }
 
 /// wrapper of `TriggerBuilder`
 pub struct TriggerFns {
-    builder: TriggerBuilder,
+    pub builder: TriggerBuilder,
 }
 
 impl TriggerFns {
@@ -80,7 +84,7 @@ impl TriggerFns {
         let action_ctx = self.builder.trigger_condition.get_action_context();
         match self.builder.action_mode {
             ActionMode::SequentialAll => self.builder.actions.iter().for_each(|e| {
-                e.execute(&action_ctx);
+                e.execute(&action_ctx, self.builder.linked_triggers.clone());
             }),
             ActionMode::SequentialOne => {
                 self.builder.execute_next_action(&action_ctx);
@@ -99,6 +103,21 @@ impl TriggerFns {
             _ => {}
         }
     }
+
+    pub fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>> {
+        if let Some(triggers) = &self.builder.linked_triggers {
+            if let Some(trigger) = triggers.get(&name) {
+                return Some(trigger.clone());
+            } else {
+                return None;
+            }
+        }
+        None
+    }
+
+    pub fn get_action(&self, idx: usize) -> Arc<Box<dyn AsAction>> {
+        self.builder.actions.get(idx).unwrap().clone()
+    }
 }
 
 impl TriggerBuilder {
@@ -113,6 +132,7 @@ impl TriggerBuilder {
             cooldown: None,
             event_type,
             action_idx: AtomicI32::new(0),
+            linked_triggers: None,
         }
     }
 
@@ -128,8 +148,14 @@ impl TriggerBuilder {
         self.action_mode = action_mode;
     }
 
+    pub fn set_linked_triggers(&mut self, linked_triggers: Option<HashMap<String, Arc<TriggerProperties>>>) {
+        if let Some(triggers) = linked_triggers {
+           self.linked_triggers = Some(Arc::new(triggers));
+        }
+    }
+
     pub fn add_action(&mut self, event: Box<dyn AsAction>) {
-        self.actions.push(event);
+        self.actions.push(Arc::new(event));
     }
 
     pub fn add_check_condition(&mut self, cond: Box<dyn AsCheckCondition>) {
@@ -189,19 +215,19 @@ impl TriggerBuilder {
             self.action_idx.store(1, Ordering::SeqCst);
             action_idx = 0;
         }
-        self.actions[action_idx as usize].execute(action_ctx);
+        self.actions[action_idx as usize].execute(action_ctx, None);
     }
 
     fn execute_random_one(&self, action_ctx: &ActionContext) {
         let idx = rand::thread_rng().gen_range(0..self.actions.len());
-        self.actions[idx].execute(action_ctx);
+        self.actions[idx].execute(action_ctx, None);
     }
 }
 
 pub struct Trigger {
-    name: Option<String>,
-    trigger_fns: TriggerFns,
-    event_type: EventType,
+    pub name: Option<String>,
+    pub trigger_fns: TriggerFns,
+    pub event_type: EventType,
 }
 
 impl std::fmt::Debug for Trigger {
@@ -223,6 +249,10 @@ impl AsTrigger for Trigger {
     fn on_event_reset(&mut self) {
         self.trigger_fns.reset()
     }
+    
+    fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>> {
+        self.trigger_fns.get_trigger(name)
+    }
 }
 
 pub struct SendChatMessageEvent {
@@ -235,14 +265,25 @@ impl SendChatMessageEvent {
     pub fn new(msg: &str, enabled_cnt: bool) -> Self {
         SendChatMessageEvent { 
             msg: msg.to_string(),
-            cnt: AtomicI32::new(1),
+            cnt: AtomicI32::new(0),
             enabled_cnt
         }
     }
 }
 
+pub struct TriggerProperties {
+    trigger: Arc<Mutex<configs::Trigger>>,
+    chat_message: Arc<Box<dyn AsAction>>,
+}
+
+impl TriggerProperties {
+    pub fn new(trigger: Arc<Mutex<configs::Trigger>>, chat_message: Arc<Box<dyn AsAction>>) -> Self {
+        TriggerProperties { trigger, chat_message }
+    }
+}
+
 impl AsAction for SendChatMessageEvent {
-    fn execute(&self, action_ctx: &ActionContext) {
+    fn execute(&self, action_ctx: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>) {
         let mut msg = self.msg.clone();
         if let Some(context) = action_ctx {
             for (key, value) in context {
@@ -251,14 +292,23 @@ impl AsAction for SendChatMessageEvent {
             }
         };
         if self.enabled_cnt {
-            msg = msg.replace("%d", &self.cnt.fetch_add(1, atomic::Ordering::SeqCst).to_string());
+            msg = msg.replace("%d", &(self.cnt.fetch_add(1, atomic::Ordering::SeqCst) + 1).to_string());
+        }
+        if let Some(trigger) = triggers {
+            for (name, trigger) in trigger.iter() {
+                debug!("trigger name: {}, cnt: {}", name, trigger.chat_message.get_cnt());
+                msg = msg.replace(&format!("{{{{ {} }}}}", name), &trigger.chat_message.get_cnt().to_string());
+            }
         }
         CHAT_MESSAGE_SENDER.send(&msg);
     }
     fn reset(&self) {
         if self.enabled_cnt {
-            self.cnt.store(1, atomic::Ordering::SeqCst);
+            self.cnt.store(0, atomic::Ordering::SeqCst);
         }
+    }
+    fn get_cnt(&self) -> i32 {
+        self.cnt.load(atomic::Ordering::Relaxed)
     }
 }
 
@@ -357,9 +407,8 @@ impl TriggerManager {
 }
 
 /// 通过配置注册 Trigger
-pub fn register_trigger(t_cfg: &configs::Trigger, shared_ctx: SharedContext) -> Trigger {
-    let t_cfg = t_cfg.clone();
-    let action_mode = t_cfg.action_mode.unwrap_or(configs::ActionMode::SequentialAll);
+pub fn register_trigger(t_cfg: &MutexGuard<'_, configs::Trigger>, shared_ctx: SharedContext) -> Trigger {
+    let action_mode = *t_cfg.action_mode.as_ref().unwrap_or(&configs::ActionMode::SequentialAll);
     let t_cond = register_trigger_condition(&t_cfg.trigger_on, shared_ctx.clone());
 
     let mut builder = TriggerBuilder::new(t_cond);
