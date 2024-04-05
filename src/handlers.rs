@@ -2,7 +2,7 @@ use crate::{
     configs,
     event::Event,
     game_context::{ChargeBlade, ChatCommand, Context, InsectGlaive},
-    triggers::{self, SharedContext, Trigger, TriggerProperties},
+    triggers::{self, SharedContext, Trigger, TriggerInfo},
     tx_send_or_break, TriggerManager,
 };
 
@@ -177,57 +177,47 @@ pub fn load_triggers() -> Result<TriggerManager, String> {
     let shared_ctx = Arc::new(std::sync::RwLock::new(Context::default()));
     let mut trigger_mgr = TriggerManager::new(shared_ctx.clone());
 
-    match parse_config(&config, shared_ctx.clone()) {
-        Ok(triggers) => {
-            triggers.into_iter().for_each(|trigger| {
-                trigger_mgr.register_trigger(trigger);
-            });
-        }
-        Err(msg) => {
-            return Err(msg)
-        }
-    }
+    parse_config(&config, shared_ctx.clone()).into_iter().for_each(|trigger| {
+        trigger_mgr.register_trigger(trigger);
+    });
+
     Ok(trigger_mgr)
 }
 
-pub fn parse_config(cfg: &configs::FilteredConfig, shared_ctx: SharedContext) -> Result<Vec<Trigger>, String> {
-
-    let mut a = cfg.unnamed_triggers
+pub fn parse_config(cfg: &configs::FilteredConfig, shared_ctx: SharedContext) -> Vec<Trigger> {
+    // 对未命名的触发器进行注册
+    let mut registered_triggers = cfg.unnamed_triggers
         .iter()
-        .map(|t| {
-            let t = t.lock().unwrap();
-            triggers::register_trigger(&t, shared_ctx.clone())
-        })
+        .map(|t| triggers::register_trigger(&t.lock().unwrap(), shared_ctx.clone()))
         .collect::<Vec<_>>();
-    let mut b = HashMap::new();
-    cfg.named_triggers
-    .iter()
-    .for_each(|(name, t)| {
-        let t = t.lock().unwrap();
-        b.insert(name, triggers::register_trigger(&t, shared_ctx.clone()));
-    });
 
-    cfg.named_triggers.iter().for_each(|(root_name, t)|{
+    // 提前构建命名触发器的注册结果，避免重复lock和注册操作
+    let mut named_trigger_registrations = cfg.named_triggers
+        .iter()
+        .map(|(name, t)| (name.clone(), triggers::register_trigger(&t.lock().unwrap(), shared_ctx.clone())))
+        .collect::<HashMap<_, _>>();
+
+    // 设置关联触发器
+    cfg.named_triggers.iter().for_each(|(root_name, t)| {
         let t = t.lock().unwrap();
         if let Some(link_triggers) = &t.link {
-            let mut map = HashMap::with_capacity(link_triggers.len());
-            link_triggers.iter().for_each(|n| {
-                if let Some((name2, value)) = cfg.named_triggers.get_key_value(n) {
-                    if let Some(builder) = b.get(n) {
-                        map.insert(name2.clone(), Arc::new(TriggerProperties::new(value.clone(), builder.trigger_fns.get_action(0))));
-                    }
-                }
-            });
-            b.get_mut(root_name).unwrap().trigger_fns.builder.set_linked_triggers(Some(map));
+            let linked_triggers_map = link_triggers.iter().filter_map(|n| {
+                cfg.named_triggers.get_key_value(n).and_then(|(name, value)| {
+                    named_trigger_registrations.get(n).map(|builder| {
+                        (name.clone(), Arc::new(TriggerInfo::new(value.clone(), builder.trigger_fns.get_action(0))))
+                    })
+                })
+            }).collect::<HashMap<_, _>>();
+            named_trigger_registrations.get_mut(root_name).unwrap().trigger_fns.builder.set_linked_triggers(Some(linked_triggers_map));
         }
     });
 
-    let b = b.into_iter().map(|(_, v)| v).collect::<Vec<_>>();
-    a.extend(b);
+    // 将命名触发器的注册结果添加到总触发器列表
+    registered_triggers.extend(named_trigger_registrations.into_values());
 
-    return Ok(a)
-    
+    registered_triggers
 }
+
 
 #[macro_export]
 macro_rules! tx_send_or_break {

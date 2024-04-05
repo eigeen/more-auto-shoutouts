@@ -32,12 +32,10 @@ pub struct Config {
 #[derive(Debug)]
 pub struct FilteredConfig {
     /// 全局事件冷却时间
-    ///
-    /// 默认应用于所有触发器
-    ///
-    /// 可被触发器设置覆盖
     pub trigger_cd: f32,
+    /// 被命名的触发器
     pub named_triggers: HashMap<String, Arc<Mutex<Trigger>>>,
+    /// 未命名的触发器
     pub unnamed_triggers: Vec<Arc<Mutex<Trigger>>>,
 }
 
@@ -214,6 +212,25 @@ pub enum ActionMode {
     Random,
 }
 
+fn apply_defaults_and_validate<'a>(trigger: impl Iterator<Item = &'a mut Trigger>, cd: f32) -> Result<(), ConfigError> {
+    for t in trigger {
+        // 为Trigger应用全局默认设置
+        t.cooldown = Some(t.cooldown.unwrap_or(cd));
+        // 检查触发器条件
+        match &t.trigger_on {
+            TriggerCondition::LongswordLevelChanged { new, old } => {
+                if new.is_none() && old.is_none() {
+                    return Err(ConfigError::Validate {
+                        reason: "LongswordLevelChanged 参数不能都为空".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        };
+    }
+    Ok(())
+}
+
 pub fn load_config<P>(path: P) -> Result<FilteredConfig, ConfigError>
 where
     P: AsRef<Path>,
@@ -221,6 +238,8 @@ where
     let s: String = fs::read_to_string(path).context(IoSnafu)?;
     let config: Config = toml::from_str(&s).context(ParseSnafu)?;
     let cd = config.trigger_cd;
+
+    // 过滤config， 分离命名和未命名的触发器
     let (mut named_triggers, mut unnamed_triggers) = filter_config(config);
     // 预验证config
     if cd < 0.0 {
@@ -228,41 +247,15 @@ where
             reason: "event_cd 不能小于0.0".to_string(),
         });
     }
-    for (_, t) in named_triggers.iter_mut() {
-        // 为Trigger应用全局默认设置
-        t.cooldown = Some(t.cooldown.unwrap_or(cd));
-        // 检查触发器条件
-        match &t.trigger_on {
-            TriggerCondition::LongswordLevelChanged { new, old } => {
-                if new.is_none() && old.is_none() {
-                    return Err(ConfigError::Validate {
-                        reason: "LongswordLevelChanged 参数不能都为空".to_string(),
-                    });
-                }
-            }
-            _ => {}
-        };
-    }
 
-    for t in unnamed_triggers.iter_mut() {
-        // 为Trigger应用全局默认设置
-        t.cooldown = Some(t.cooldown.unwrap_or(cd));
-        // 检查触发器条件
-        match &t.trigger_on {
-            TriggerCondition::LongswordLevelChanged { new, old } => {
-                if new.is_none() && old.is_none() {
-                    return Err(ConfigError::Validate {
-                        reason: "LongswordLevelChanged 参数不能都为空".to_string(),
-                    });
-                }
-            }
-            _ => {}
-        };
-    }
+    apply_defaults_and_validate(named_triggers.values_mut().into_iter(), cd)?;
+    apply_defaults_and_validate(unnamed_triggers.iter_mut(), cd)?;
 
+    // 转换 HashMap<String, Trigger> -> HashMap<String, Arc<Mutex<Trigger>>>
     let mut new_named_triggers = HashMap::new();
-    named_triggers.into_iter().for_each(|(key, value)| {new_named_triggers.insert(key.clone(), Arc::new(Mutex::new(value)));});
+    named_triggers.into_iter().for_each(|(key, value)| {new_named_triggers.insert(key, Arc::new(Mutex::new(value)));});
     
+    // 转换 Vec<Trigger> -> Vec<Arc<Mutex<Trigger>>>
     let mut new_unnamed_triggers = Vec::new();
     unnamed_triggers.into_iter().for_each(|value| {new_unnamed_triggers.push(Arc::new(Mutex::new(value)));});
 

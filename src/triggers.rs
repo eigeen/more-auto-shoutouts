@@ -40,18 +40,16 @@ pub trait AsCheckCondition: Send + Sync {
 }
 
 pub trait AsAction: Send + Sync {
-    fn execute(&self, context: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>);
+    fn execute(&self, context: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerInfo>>>>);
     fn reset(&self);
-    fn get_cnt(&self) -> i32 {
-        0
-    }
+    fn get_cnt(&self) -> i32;
 }
 
 pub trait AsTrigger: Send + Sync {
     fn event_type(&self) -> EventType;
     fn on_event(&mut self, event: &Event);
     fn on_event_reset(&mut self);
-    fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>>;
+    fn get_trigger(&self, name: String) -> Option<Arc<TriggerInfo>>;
 }
 
 pub struct TriggerBuilder {
@@ -61,7 +59,7 @@ pub struct TriggerBuilder {
     check_conditions: Vec<Box<dyn AsCheckCondition>>,
     action_mode: ActionMode,
     cooldown: Option<SingleCoolDown>,
-    linked_triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>,
+    linked_triggers: Option<Arc<HashMap<String, Arc<TriggerInfo>>>>,
     event_type: EventType,
     action_idx: AtomicI32,
 }
@@ -104,7 +102,7 @@ impl TriggerFns {
         }
     }
 
-    pub fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>> {
+    pub fn get_trigger(&self, name: String) -> Option<Arc<TriggerInfo>> {
         if let Some(triggers) = &self.builder.linked_triggers {
             if let Some(trigger) = triggers.get(&name) {
                 return Some(trigger.clone());
@@ -148,7 +146,7 @@ impl TriggerBuilder {
         self.action_mode = action_mode;
     }
 
-    pub fn set_linked_triggers(&mut self, linked_triggers: Option<HashMap<String, Arc<TriggerProperties>>>) {
+    pub fn set_linked_triggers(&mut self, linked_triggers: Option<HashMap<String, Arc<TriggerInfo>>>) {
         if let Some(triggers) = linked_triggers {
            self.linked_triggers = Some(Arc::new(triggers));
         }
@@ -250,7 +248,7 @@ impl AsTrigger for Trigger {
         self.trigger_fns.reset()
     }
     
-    fn get_trigger(&self, name: String) -> Option<Arc<TriggerProperties>> {
+    fn get_trigger(&self, name: String) -> Option<Arc<TriggerInfo>> {
         self.trigger_fns.get_trigger(name)
     }
 }
@@ -271,19 +269,20 @@ impl SendChatMessageEvent {
     }
 }
 
-pub struct TriggerProperties {
+#[allow(dead_code)]
+pub struct TriggerInfo {
     trigger: Arc<Mutex<configs::Trigger>>,
     chat_message: Arc<Box<dyn AsAction>>,
 }
 
-impl TriggerProperties {
+impl TriggerInfo {
     pub fn new(trigger: Arc<Mutex<configs::Trigger>>, chat_message: Arc<Box<dyn AsAction>>) -> Self {
-        TriggerProperties { trigger, chat_message }
+        TriggerInfo { trigger, chat_message }
     }
 }
 
 impl AsAction for SendChatMessageEvent {
-    fn execute(&self, action_ctx: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerProperties>>>>) {
+    fn execute(&self, action_ctx: &ActionContext, triggers: Option<Arc<HashMap<String, Arc<TriggerInfo>>>>) {
         let mut msg = self.msg.clone();
         if let Some(context) = action_ctx {
             for (key, value) in context {
@@ -294,19 +293,22 @@ impl AsAction for SendChatMessageEvent {
         if self.enabled_cnt {
             msg = msg.replace("%d", &(self.cnt.fetch_add(1, atomic::Ordering::SeqCst) + 1).to_string());
         }
+
+        // 把关联的触发器的计数值替换到消息中
         if let Some(trigger) = triggers {
             for (name, trigger) in trigger.iter() {
-                debug!("trigger name: {}, cnt: {}", name, trigger.chat_message.get_cnt());
                 msg = msg.replace(&format!("{{{{ {} }}}}", name), &trigger.chat_message.get_cnt().to_string());
             }
         }
         CHAT_MESSAGE_SENDER.send(&msg);
     }
+
     fn reset(&self) {
         if self.enabled_cnt {
             self.cnt.store(0, atomic::Ordering::SeqCst);
         }
     }
+
     fn get_cnt(&self) -> i32 {
         self.cnt.load(atomic::Ordering::Relaxed)
     }
