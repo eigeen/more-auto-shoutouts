@@ -102,6 +102,7 @@ impl TriggerFns {
         }
     }
 
+    #[inline]
     pub fn get_trigger(&self, name: String) -> Option<Arc<TriggerInfo>> {
         if let Some(triggers) = &self.builder.linked_triggers {
             if let Some(trigger) = triggers.get(&name) {
@@ -113,8 +114,20 @@ impl TriggerFns {
         None
     }
 
+    #[inline]
     pub fn get_action(&self, idx: usize) -> Arc<Box<dyn AsAction>> {
         self.builder.actions.get(idx).unwrap().clone()
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub fn get_builder(&self) -> &TriggerBuilder {
+        &self.builder
+    }
+
+    #[inline]
+    pub fn get_builder_mut(&mut self) -> &mut TriggerBuilder {
+        &mut self.builder
     }
 }
 
@@ -226,6 +239,20 @@ pub struct Trigger {
     pub name: Option<String>,
     pub trigger_fns: TriggerFns,
     pub event_type: EventType,
+}
+
+impl Trigger {
+
+    #[inline]
+    #[allow(dead_code)]
+    pub fn get_trigger_fns(&self) -> &TriggerFns {
+        &self.trigger_fns
+    }
+
+    #[inline]
+    pub fn get_trigger_fns_mut(&mut self) -> &mut TriggerFns {
+        &mut self.trigger_fns
+    }
 }
 
 impl std::fmt::Debug for Trigger {

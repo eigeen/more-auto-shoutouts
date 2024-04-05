@@ -208,7 +208,7 @@ pub fn parse_config(cfg: &configs::FilteredConfig, shared_ctx: SharedContext) ->
                     })
                 })
             }).collect::<HashMap<_, _>>();
-            named_trigger_registrations.get_mut(root_name).unwrap().trigger_fns.builder.set_linked_triggers(Some(linked_triggers_map));
+            named_trigger_registrations.get_mut(root_name).unwrap().get_trigger_fns_mut().get_builder_mut().set_linked_triggers(Some(linked_triggers_map));
         }
     });
 
