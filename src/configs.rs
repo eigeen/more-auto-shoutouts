@@ -378,11 +378,4 @@ mod tests {
         let longsword = WeaponType::LongSword;
         assert!(ValueCmp::EqInt(3) == longsword.as_i32());
     }
-
-    // #[test]
-    // fn test_convert_to_json() {
-    //     let cfg = load_config(EXAMPLE_FILE_PATH).unwrap();
-    //     let json_cfg = serde_json::to_string(&cfg).unwrap();
-    //     eprintln!("{}", json_cfg);
-    // }
 }
