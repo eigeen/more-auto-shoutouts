@@ -17,6 +17,8 @@ mod game_context;
 mod handlers;
 mod triggers;
 
+#[cfg(feature = "use_audio")]
+mod audios;
 #[cfg(feature = "hooks")]
 mod hooks;
 #[cfg(feature = "use_logger")]
@@ -59,11 +61,11 @@ use use_logger::init_log;
 
 fn main_entry() -> Result<(), String> {
     init_log();
-    let runtime = tokio::runtime::Runtime::new().unwrap();
     info!("版本: {}", env!("CARGO_PKG_VERSION"));
 
     let _app = App::new();
 
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().map_err(|e| e.to_string())?;
     runtime.block_on(async {
         let (tx, rx) = mpsc::channel(1024);
         // 事件处理器
@@ -71,7 +73,7 @@ fn main_entry() -> Result<(), String> {
         // 事件监听器
         let tx1 = tx.clone();
         tokio::spawn(async move { handlers::event_listener(tx1).await });
-        // 钩子注册与钩子事件监听转换器
+        // 钩子注册与钩子事件转发
         #[cfg(feature = "hooks")]
         {
             let hooks_rx = hooks::init_hooks();
