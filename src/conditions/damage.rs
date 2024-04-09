@@ -5,9 +5,10 @@ use log::error;
 use tokio::sync::Mutex;
 
 use crate::{
+    actions::ActionContext,
     configs::{TriggerCondition, ValueCmp},
     event::{Event, EventType},
-    triggers::{ActionContext, AsTriggerCondition},
+    triggers::AsTriggerCondition,
 };
 
 pub struct DamageCondition {

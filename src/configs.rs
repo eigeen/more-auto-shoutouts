@@ -184,8 +184,6 @@ impl PartialEq<i32> for ValueCmp {
 pub enum Command {
     /// 发送聊天消息
     SendChatMessage,
-    /// 发送系统消息（TODO）
-    SystemMessage,
 }
 
 /// 触发器行为模式

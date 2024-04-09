@@ -16,6 +16,7 @@ mod game;
 mod game_context;
 mod handlers;
 mod triggers;
+mod actions;
 
 #[cfg(feature = "use_audio")]
 mod audios;

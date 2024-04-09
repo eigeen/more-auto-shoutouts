@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{self, AtomicI32, Ordering},
+        atomic::{AtomicI32, Ordering},
         Arc,
     },
 };
@@ -10,26 +10,18 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use futures::{stream, StreamExt};
 use log::debug;
-use mhw_toolkit::game_util;
-use once_cell::sync::Lazy;
 use rand::Rng;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    conditions::{
+    actions::{self, ActionContext, AsAction}, conditions::{
         charge_blade::ChargeBladeCondition, damage::DamageCondition, fsm::FsmCondition,
         insect_glaive::InsectGlaiveCondition, longsword::LongswordCondition, quest_state::QuestStateCondition,
         use_item::UseItemCondition, weapon_id::WeaponTypeCondition,
-    },
-    configs::{self, ActionMode, TriggerCondition},
-    event::{Event, EventType},
-    game_context::Context,
+    }, configs::{self, ActionMode, TriggerCondition}, event::{Event, EventType}, game_context::Context
 };
 
-pub type ActionContext = Option<HashMap<String, String>>;
 pub type SharedContext = Arc<RwLock<Context>>;
-
-static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| game_util::ChatMessageSender::new());
 
 #[async_trait]
 pub trait AsTriggerCondition: Send + Sync {
@@ -43,12 +35,6 @@ pub trait AsTriggerCondition: Send + Sync {
 #[async_trait]
 pub trait AsCheckCondition: Send + Sync {
     async fn check(&self) -> bool;
-}
-
-#[async_trait]
-pub trait AsAction: Send + Sync {
-    async fn execute(&self, context: &ActionContext);
-    async fn reset(&self);
 }
 
 #[async_trait]
@@ -244,44 +230,6 @@ impl AsTrigger for Trigger {
     }
 }
 
-pub struct SendChatMessageEvent {
-    msg: String,
-    cnt: AtomicI32,
-    enabled_cnt: bool,
-}
-
-impl SendChatMessageEvent {
-    pub fn new(msg: &str, enabled_cnt: bool) -> Self {
-        SendChatMessageEvent {
-            msg: msg.to_string(),
-            cnt: AtomicI32::new(1),
-            enabled_cnt,
-        }
-    }
-}
-
-#[async_trait]
-impl AsAction for SendChatMessageEvent {
-    async fn execute(&self, action_ctx: &ActionContext) {
-        let mut msg = self.msg.clone();
-        if let Some(context) = action_ctx {
-            for (key, value) in context {
-                let placeholder = format!("{{{{{}}}}}", key); // placeholder = "{{ key }}"
-                msg = msg.replace(&placeholder, value);
-            }
-        };
-        if self.enabled_cnt {
-            msg = msg.replace("%d", &self.cnt.fetch_add(1, atomic::Ordering::SeqCst).to_string());
-        }
-        CHAT_MESSAGE_SENDER.send(&msg);
-    }
-    async fn reset(&self) {
-        if self.enabled_cnt {
-            self.cnt.store(1, atomic::Ordering::SeqCst);
-        }
-    }
-}
-
 /// 触发器管理
 pub struct TriggerManager {
     triggers: HashMap<EventType, Vec<Arc<Mutex<Trigger>>>>,
@@ -385,8 +333,8 @@ pub fn register_trigger(t_cfg: &configs::Trigger, shared_ctx: SharedContext) -> 
         .action
         .iter()
         .filter_map(|item| match t_cfg.enable_cnt {
-            Some(true) => register_action(item, true),
-            _ => register_action(item, false),
+            Some(true) => actions::create_action(item, true),
+            _ => actions::create_action(item, false),
         })
         .for_each(|e| builder.add_action(e));
 
@@ -435,13 +383,6 @@ fn register_trigger_condition(
         TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(&trigger_cond, shared_ctx)),
         TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(&trigger_cond)),
         TriggerCondition::Damage { .. } => Box::new(DamageCondition::new_trigger(&trigger_cond)),
-    }
-}
-
-fn register_action(action_cfg: &configs::Action, enabled_cnt: bool) -> Option<Box<dyn AsAction>> {
-    match action_cfg.cmd {
-        configs::Command::SendChatMessage => Some(Box::new(SendChatMessageEvent::new(&action_cfg.param, enabled_cnt))),
-        configs::Command::SystemMessage => None,
     }
 }
 
