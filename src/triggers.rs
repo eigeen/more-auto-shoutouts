@@ -247,19 +247,15 @@ impl AsTrigger for Trigger {
 pub struct SendChatMessageEvent {
     msg: String,
     cnt: AtomicI32,
+    enabled_cnt: bool,
 }
 
 impl SendChatMessageEvent {
     pub fn new(msg: &str, enabled_cnt: bool) -> Self {
         SendChatMessageEvent {
             msg: msg.to_string(),
-            cnt: AtomicI32::new({
-                if enabled_cnt {
-                    -1
-                } else {
-                    1
-                }
-            }),
+            cnt: AtomicI32::new(1),
+            enabled_cnt,
         }
     }
 }
@@ -274,14 +270,15 @@ impl AsAction for SendChatMessageEvent {
                 msg = msg.replace(&placeholder, value);
             }
         };
-        let cnt = self.cnt.load(atomic::Ordering::Relaxed);
-        if cnt >= 1 {
+        if self.enabled_cnt {
             msg = msg.replace("%d", &self.cnt.fetch_add(1, atomic::Ordering::SeqCst).to_string());
         }
         CHAT_MESSAGE_SENDER.send(&msg);
     }
     async fn reset(&self) {
-        self.cnt.store(1, atomic::Ordering::SeqCst);
+        if self.enabled_cnt {
+            self.cnt.store(1, atomic::Ordering::SeqCst);
+        }
     }
 }
 
@@ -339,12 +336,16 @@ impl TriggerManager {
 
     pub async fn dispatch(&mut self, event: &Event) {
         // 需要广播的消息
-        match event.event_type() {
-            EventType::QuestStateChanged => {
-                self.broadcast_and_reset(event).await;
+        match event {
+            Event::QuestStateChanged { new, .. } => {
+                if new == &1 {
+                    self.broadcast_and_reset(event).await;
+                } else {
+                    self.broadcast(event).await;
+                }
                 return;
             }
-            EventType::Damage => {
+            Event::Damage { .. } => {
                 self.broadcast(event).await;
                 return;
             }
