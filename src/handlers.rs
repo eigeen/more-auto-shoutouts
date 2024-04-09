@@ -6,10 +6,14 @@ use crate::{
     tx_send_or_break, TriggerManager,
 };
 
+use futures::{stream, StreamExt};
 use log::{debug, error, info};
 use mhw_toolkit::game_util::{self, WeaponType};
 use std::{sync::Arc, time::Duration};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{
+    mpsc::{Receiver, Sender},
+    Mutex, RwLock,
+};
 
 /// 事件监听器
 pub async fn event_listener(tx: Sender<Event>) {
@@ -27,7 +31,7 @@ pub async fn event_listener(tx: Sender<Event>) {
                 ChatCommand::ReloadConfig => {
                     debug!("on {}", "ChatCommand::ReloadConfig");
                     info!("接收用户命令：{:?}", cmd);
-                    let trigger_mgr = match load_triggers() {
+                    let trigger_mgr = match load_triggers().await {
                         Ok(mgr) => mgr,
                         Err(e) => {
                             error!("加载配置失败：{}", e);
@@ -152,11 +156,11 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
             }
             if let Some(mgr) = &mut trigger_mgr {
                 if let Event::UpdateContext { ctx } = e {
-                    mgr.update_ctx(&ctx);
+                    mgr.update_ctx(&ctx).await;
                     continue;
                 }
                 // 处理
-                mgr.dispatch(&e);
+                mgr.dispatch(&e).await;
             }
         } else {
             error!("接收端错误");
@@ -165,7 +169,7 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
     }
 }
 
-pub fn load_triggers() -> Result<TriggerManager, String> {
+pub async fn load_triggers() -> Result<TriggerManager, String> {
     info!("尝试加载配置文件 nativePC/plugins/mas-config.toml");
     let config = match configs::load_config("./nativePC/plugins/mas-config.toml") {
         Ok(cfg) => cfg,
@@ -174,11 +178,22 @@ pub fn load_triggers() -> Result<TriggerManager, String> {
     debug!("load config: {:?}", config);
     info!("已加载配置文件");
     // 注册触发器
-    let shared_ctx = Arc::new(std::sync::RwLock::new(Context::default()));
-    let mut trigger_mgr = TriggerManager::new(shared_ctx.clone());
-    parse_config(&config, shared_ctx.clone()).into_iter().for_each(|trigger| {
-        trigger_mgr.register_trigger(trigger);
-    });
+    let shared_ctx = Arc::new(RwLock::new(Context::default()));
+    let trigger_mgr = TriggerManager::new(shared_ctx.clone());
+    let triggers = parse_config(&config, shared_ctx.clone());
+
+    let mgr_shared = Arc::new(Mutex::new(trigger_mgr));
+    stream::iter(triggers.into_iter())
+        .for_each_concurrent(None, |trigger| {
+            let mgr = mgr_shared.clone();
+            async move {
+                mgr.lock().await.register_trigger(trigger).await;
+            }
+        })
+        .await;
+
+    // 回收trigger_mgr
+    let trigger_mgr = Arc::try_unwrap(mgr_shared).unwrap().into_inner();
     Ok(trigger_mgr)
 }
 

@@ -82,7 +82,7 @@ fn main_entry() -> Result<(), String> {
         }
 
         // 首次自动加载配置文件
-        match handlers::load_triggers() {
+        match handlers::load_triggers().await {
             Ok(trigger_mgr) => {
                 if let Err(e) = tx.send(Event::LoadTriggers { trigger_mgr }).await {
                     error!("加载配置失败：{}", e);

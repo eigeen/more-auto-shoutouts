@@ -1,6 +1,8 @@
-use std::{collections::HashMap, sync::Mutex};
+use std::collections::HashMap;
 
+use async_trait::async_trait;
 use log::error;
+use tokio::sync::Mutex;
 
 use crate::{
     configs::{TriggerCondition, ValueCmp},
@@ -31,13 +33,14 @@ impl DamageCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for DamageCondition {
-    fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event) -> bool {
         if let Event::Damage { damage, .. } = event {
             if &self.trigger_value == damage {
                 let mut context = HashMap::new();
                 context.insert("damage".to_string(), damage.to_string());
-                self.action_ctx.lock().unwrap().replace(context);
+                self.action_ctx.lock().await.replace(context);
                 true
             } else {
                 false
@@ -51,7 +54,7 @@ impl AsTriggerCondition for DamageCondition {
         EventType::Damage
     }
 
-    fn get_action_context(&self) -> ActionContext {
-        self.action_ctx.lock().unwrap().clone()
+    async fn get_action_context(&self) -> ActionContext {
+        self.action_ctx.lock().await.clone()
     }
 }

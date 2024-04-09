@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use log::error;
 
 use crate::{
@@ -35,8 +36,9 @@ impl UseItemCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for UseItemCondition {
-    fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
     }
 

@@ -1,5 +1,9 @@
 /target
-mas-config.toml
-*.lib
 /.idea
 /.vscode
+
+*.lib
+mas-config.toml
+*.mp3
+*.wav
+*.ogg

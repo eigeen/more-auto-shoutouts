@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use log::error;
 
 use crate::{
@@ -73,8 +74,9 @@ impl LongswordCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for LongswordCondition {
-    fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
     }
 
@@ -83,8 +85,9 @@ impl AsTriggerCondition for LongswordCondition {
     }
 }
 
+#[async_trait]
 impl AsCheckCondition for LongswordCondition {
-    fn check(&self) -> bool {
-        (self.check_fn)(&self.shared_ctx.read().unwrap())
+    async fn check(&self) -> bool {
+        (self.check_fn)(&*self.shared_ctx.read().await)
     }
 }

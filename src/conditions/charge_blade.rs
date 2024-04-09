@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use log::error;
 
 use crate::{
@@ -41,9 +42,10 @@ impl ChargeBladeCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for ChargeBladeCondition {
-    fn check(&self, event: &Event) -> bool {
-        let ctx = self.shared_ctx.read().unwrap();
+    async fn check(&self, event: &Event) -> bool {
+        let ctx = self.shared_ctx.read().await;
         if let Event::ChargeBlade = event {
             let phials = parse_cfg_phials_special(&self.phials, ctx.charge_blade.max_phials);
             let power_axe_timer = parse_cfg_power_axe_timer_special(&self.power_axe_timer);

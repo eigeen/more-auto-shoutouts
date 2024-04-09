@@ -36,7 +36,7 @@ extern "C" fn hook_function(
     }
 }
 
-pub fn init_hook() -> Result<(), ()> {
+pub fn install_hook() -> Result<(), ()> {
     unsafe {
         // 初始化MinHook
         minhook_sys::MH_Initialize();

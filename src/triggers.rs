@@ -2,15 +2,18 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{self, AtomicI32, Ordering},
-        Arc, Mutex, RwLock,
+        Arc,
     },
 };
 
+use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
-use log::{debug, error};
+use futures::{stream, StreamExt};
+use log::debug;
 use mhw_toolkit::game_util;
 use once_cell::sync::Lazy;
 use rand::Rng;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     conditions::{
@@ -28,27 +31,31 @@ pub type SharedContext = Arc<RwLock<Context>>;
 
 static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| game_util::ChatMessageSender::new());
 
+#[async_trait]
 pub trait AsTriggerCondition: Send + Sync {
-    fn check(&self, event: &Event) -> bool;
+    async fn check(&self, event: &Event) -> bool;
     fn event_type(&self) -> EventType;
-    fn get_action_context(&self) -> ActionContext {
+    async fn get_action_context(&self) -> ActionContext {
         None
     }
 }
 
+#[async_trait]
 pub trait AsCheckCondition: Send + Sync {
-    fn check(&self) -> bool;
+    async fn check(&self) -> bool;
 }
 
+#[async_trait]
 pub trait AsAction: Send + Sync {
-    fn execute(&self, context: &ActionContext);
-    fn reset(&self);
+    async fn execute(&self, context: &ActionContext);
+    async fn reset(&self);
 }
 
+#[async_trait]
 pub trait AsTrigger: Send + Sync {
     fn event_type(&self) -> EventType;
-    fn on_event(&mut self, event: &Event);
-    fn on_event_reset(&mut self);
+    async fn on_event(&mut self, event: &Event);
+    async fn on_event_reset(&mut self);
 }
 
 pub struct TriggerBuilder {
@@ -68,34 +75,45 @@ pub struct TriggerFns {
 }
 
 impl TriggerFns {
-
     pub fn new(builder: TriggerBuilder) -> Self {
         Self { builder }
     }
 
-    pub fn execute(&mut self, event: &Event) {
-        if !self.builder.check_conditions(event) {
+    pub async fn execute(&mut self, event: &Event) {
+        if !self.builder.check_conditions(event).await {
             return;
         }
-        let action_ctx = self.builder.trigger_condition.get_action_context();
+        let action_ctx = self.builder.trigger_condition.get_action_context().await;
         match self.builder.action_mode {
-            ActionMode::SequentialAll => self.builder.actions.iter().for_each(|e| {
-                e.execute(&action_ctx);
-            }),
+            ActionMode::SequentialAll => {
+                // 顺序执行所有Action
+                stream::iter(self.builder.actions.iter())
+                    .for_each(|e| {
+                        let action_ctx = action_ctx.clone();
+                        async move {
+                            e.execute(&action_ctx).await;
+                        }
+                    })
+                    .await;
+            }
             ActionMode::SequentialOne => {
-                self.builder.execute_next_action(&action_ctx);
+                self.builder.execute_next_action(&action_ctx).await;
             }
             ActionMode::Random => {
-                self.builder.execute_random_one(&action_ctx);
+                self.builder.execute_random_one(&action_ctx).await;
             }
         }
     }
 
-    pub fn reset(&mut self) {
+    pub async fn reset(&mut self) {
         match self.builder.action_mode {
-            ActionMode::SequentialAll => self.builder.actions.iter().for_each(|e| {
-                e.reset();
-            }),
+            ActionMode::SequentialAll => {
+                stream::iter(self.builder.actions.iter())
+                    .for_each(|e| async move {
+                        e.reset().await;
+                    })
+                    .await;
+            }
             _ => {}
         }
     }
@@ -148,7 +166,7 @@ impl TriggerBuilder {
         }
     }
 
-    fn check_conditions(&self, event: &Event) -> bool {
+    async fn check_conditions(&self, event: &Event) -> bool {
         // 状态重置条件判断
         if let ActionMode::SequentialOne = self.action_mode {
             if let Event::QuestStateChanged { new, old, .. } = event {
@@ -158,7 +176,7 @@ impl TriggerBuilder {
                     self.action_idx.store(0, Ordering::SeqCst);
                     // reset cooldown
                     if let Some(cooldown) = &self.cooldown {
-                        cooldown.reset();
+                        cooldown.reset().await;
                     }
                 }
             }
@@ -166,35 +184,35 @@ impl TriggerBuilder {
         // 判断延迟触发器
         // TODO
         // 判断触发器
-        if !self.trigger_condition.check(event) {
+        if !self.trigger_condition.check(event).await {
             return false;
         }
         // 判断检查器
-        let checked = self.check_conditions.iter().all(|c| c.check());
+        let checked = stream::iter(self.check_conditions.iter()).all(|c| async move { c.check().await }).await;
         if !checked {
             return false;
         }
         // 判断冷却
         if let Some(cd) = &self.cooldown {
-            if !cd.check_set() {
+            if !cd.check_set().await {
                 return false;
             }
         };
         true
     }
 
-    fn execute_next_action(&self, action_ctx: &ActionContext) {
+    async fn execute_next_action(&self, action_ctx: &ActionContext) {
         let mut action_idx = self.action_idx.fetch_add(1, Ordering::SeqCst);
         if action_idx >= self.actions.len() as i32 {
             self.action_idx.store(1, Ordering::SeqCst);
             action_idx = 0;
         }
-        self.actions[action_idx as usize].execute(action_ctx);
+        self.actions[action_idx as usize].execute(action_ctx).await;
     }
 
-    fn execute_random_one(&self, action_ctx: &ActionContext) {
+    async fn execute_random_one(&self, action_ctx: &ActionContext) {
         let idx = rand::thread_rng().gen_range(0..self.actions.len());
-        self.actions[idx].execute(action_ctx);
+        self.actions[idx].execute(action_ctx).await;
     }
 }
 
@@ -210,18 +228,19 @@ impl std::fmt::Debug for Trigger {
     }
 }
 
+#[async_trait]
 impl AsTrigger for Trigger {
     fn event_type(&self) -> EventType {
         self.event_type.clone()
     }
 
-    fn on_event(&mut self, event: &Event) {
-        self.trigger_fns.execute(event)
+    async fn on_event(&mut self, event: &Event) {
+        self.trigger_fns.execute(event).await
     }
 
     /// 重置触发器触发次数
-    fn on_event_reset(&mut self) {
-        self.trigger_fns.reset()
+    async fn on_event_reset(&mut self) {
+        self.trigger_fns.reset().await
     }
 }
 
@@ -232,17 +251,22 @@ pub struct SendChatMessageEvent {
 
 impl SendChatMessageEvent {
     pub fn new(msg: &str, enabled_cnt: bool) -> Self {
-        SendChatMessageEvent { 
+        SendChatMessageEvent {
             msg: msg.to_string(),
             cnt: AtomicI32::new({
-                if enabled_cnt { -1 } else { 1 }
-            })
+                if enabled_cnt {
+                    -1
+                } else {
+                    1
+                }
+            }),
         }
     }
 }
 
+#[async_trait]
 impl AsAction for SendChatMessageEvent {
-    fn execute(&self, action_ctx: &ActionContext) {
+    async fn execute(&self, action_ctx: &ActionContext) {
         let mut msg = self.msg.clone();
         if let Some(context) = action_ctx {
             for (key, value) in context {
@@ -256,7 +280,7 @@ impl AsAction for SendChatMessageEvent {
         }
         CHAT_MESSAGE_SENDER.send(&msg);
     }
-    fn reset(&self) {
+    async fn reset(&self) {
         self.cnt.store(1, atomic::Ordering::SeqCst);
     }
 }
@@ -283,70 +307,57 @@ impl TriggerManager {
         }
     }
 
-    pub fn register_trigger(&mut self, trigger: Trigger) {
+    pub async fn register_trigger(&mut self, trigger: Trigger) {
         let shared_trigger = Arc::new(Mutex::new(trigger));
-        match shared_trigger.lock() {
-            Ok(locked) => {
-                self.triggers
-                .entry(locked.event_type())
-                .or_insert_with(Vec::new)
-                .push(shared_trigger.clone());
-            }
-            Err(msg) => {
-                error!("lock error happened in register_trigger fn, {}", msg);
-            }
-        };
+        {
+            let locked = shared_trigger.lock().await;
+            self.triggers.entry(locked.event_type()).or_insert_with(Vec::new).push(shared_trigger.clone());
+        }
         self.all_triggers.push(shared_trigger);
     }
 
-    pub fn broadcast(&self, event: &Event) {
-        self.all_triggers.iter().for_each(|trigger| trigger.lock().expect("").on_event(event));
+    pub async fn broadcast(&self, event: &Event) {
+        stream::iter(self.all_triggers.iter())
+            .for_each_concurrent(None, |trigger| async move { trigger.lock().await.on_event(event).await })
+            .await;
     }
 
-    pub fn broadcast_and_reset(&self, event: &Event) {
-        self.all_triggers.iter().for_each(|trigger| {
-            match trigger.lock() {
-                Ok(mut locked) => {
-                    locked.on_event(event);
-                    locked.on_event_reset();
-                }
-                Err(msg) => {
-                    error!("lock error happened in broadcast_and_reset fn, {}", msg);
-                }
-            };
-        });
+    pub async fn broadcast_and_reset(&self, event: &Event) {
+        stream::iter(self.all_triggers.iter())
+            .for_each_concurrent(None, |trigger| async move {
+                let mut locked = trigger.lock().await;
+                locked.on_event(event).await;
+                locked.on_event_reset().await;
+            })
+            .await;
     }
 
-    pub fn update_ctx(&self, ctx: &Context) {
-        let mut shared_ctx = self.shared_ctx.write().unwrap();
+    pub async fn update_ctx(&self, ctx: &Context) {
+        let mut shared_ctx = self.shared_ctx.write().await;
         *shared_ctx = ctx.clone()
     }
 
-    pub fn dispatch(&mut self, event: &Event) {
+    pub async fn dispatch(&mut self, event: &Event) {
         // 需要广播的消息
         match event.event_type() {
             EventType::QuestStateChanged => {
-                self.broadcast_and_reset(event);
+                self.broadcast_and_reset(event).await;
                 return;
-            },
+            }
             EventType::Damage => {
-                self.broadcast(event);
+                self.broadcast(event).await;
                 return;
             }
             _ => {}
         }
         let triggers = self.triggers.get_mut(&event.event_type());
         if let Some(triggers) = triggers {
-            triggers.iter_mut().for_each(|trigger| {
-                match trigger.lock() {
-                    Ok(mut locked) => {
-                        locked.on_event(event);
-                    }
-                    Err(msg) => {
-                        error!("lock error happened in dispatch fn, {}", msg);
-                    }
-                }
-            })
+            stream::iter(triggers.iter_mut())
+                .for_each(|trigger| async move {
+                    let mut locked = trigger.lock().await;
+                    locked.on_event(event).await;
+                })
+                .await;
         }
     }
 }
@@ -369,10 +380,14 @@ pub fn register_trigger(t_cfg: &configs::Trigger, shared_ctx: SharedContext) -> 
         .map(|check_cond| register_check_condition(check_cond, shared_ctx.clone()))
         .for_each(|c| builder.add_check_condition(c));
 
-    t_cfg.action.iter().filter_map(|item| match t_cfg.enable_cnt {
-        Some(true) => register_action(item, true),
-        _ => register_action(item, false)
-    }).for_each(|e| builder.add_action(e));
+    t_cfg
+        .action
+        .iter()
+        .filter_map(|item| match t_cfg.enable_cnt {
+            Some(true) => register_action(item, true),
+            _ => register_action(item, false),
+        })
+        .for_each(|e| builder.add_action(e));
 
     let debug_name: &str = match &builder.name {
         Some(n) => n,
@@ -445,15 +460,15 @@ impl SingleCoolDown {
         }
     }
 
-    pub fn reset(&self) {
-        let mut r = self.record.lock().unwrap();
+    pub async fn reset(&self) {
+        let mut r = self.record.lock().await;
         *r = None;
     }
 
-    pub fn check_set(&self) -> bool {
+    pub async fn check_set(&self) -> bool {
         let now = Utc::now();
         let cd_dur = Duration::try_milliseconds((self.cooldown * 1000.0) as i64).unwrap_or_default();
-        let mut record = self.record.lock().unwrap();
+        let mut record = self.record.lock().await;
         let last_time = match *record {
             Some(record) => record,
             None => {

@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use log::error;
 
 use crate::{
@@ -30,9 +31,10 @@ impl InsectGlaiveCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for InsectGlaiveCondition {
-    fn check(&self, event: &Event) -> bool {
-        let ctx = self.shared_ctx.read().unwrap();
+    async fn check(&self, event: &Event) -> bool {
+        let ctx = self.shared_ctx.read().await;
         if let Event::InsectGlaive = event {
             compare_cfg_ctx(
                 &self.cond_red,

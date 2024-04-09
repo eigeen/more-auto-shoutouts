@@ -7,14 +7,13 @@ use crate::event::Event;
 
 pub mod damage;
 
-// static HOOKS_SENDER: Mutex<Option<mpsc::Sender<Event>>> = Mutex::new(None);
 static HOOKS_SENDER: Mutex<Option<mpsc::Sender<Event>>> = Mutex::new(None);
 
 pub fn init_hooks() -> Receiver<Event> {
     let (tx, rx) = mpsc::channel(256);
     HOOKS_SENDER.lock().unwrap().replace(tx);
 
-    if let Err(_) = damage::init_hook() {
+    if let Err(_) = damage::install_hook() {
         error!("初始化伤害钩子错误");
     };
 

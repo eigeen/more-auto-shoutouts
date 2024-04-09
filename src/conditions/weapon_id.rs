@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use log::error;
 
 use super::{CheckFn, TriggerFn};
@@ -53,8 +54,9 @@ impl WeaponTypeCondition {
     }
 }
 
+#[async_trait]
 impl AsTriggerCondition for WeaponTypeCondition {
-    fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event) -> bool {
         (self.trigger_fn)(event)
     }
 
@@ -63,8 +65,9 @@ impl AsTriggerCondition for WeaponTypeCondition {
     }
 }
 
+#[async_trait]
 impl AsCheckCondition for WeaponTypeCondition {
-    fn check(&self) -> bool {
-        (self.check_fn)(&self.shared_ctx.read().unwrap())
+    async fn check(&self) -> bool {
+        (self.check_fn)(&*self.shared_ctx.read().await)
     }
 }
