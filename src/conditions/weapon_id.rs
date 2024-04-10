@@ -3,7 +3,10 @@ use log::error;
 
 use super::{CheckFn, TriggerFn};
 use crate::{
-    actions::ActionContext, configs::{CheckCondition, TriggerCondition}, event::{Event, EventType}, triggers::{AsCheckCondition, AsTriggerCondition, SharedContext}
+    actions::ActionContext,
+    configs::{CheckCondition, TriggerCondition},
+    event::{Event, EventType},
+    triggers::{AsCheckCondition, AsTriggerCondition, SharedContext},
 };
 
 pub struct WeaponTypeCondition {

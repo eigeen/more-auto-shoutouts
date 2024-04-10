@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use log::{debug, info};
 use mhw_toolkit::{
     game_util::{self, WeaponType},
@@ -37,6 +37,7 @@ static DAMAGE_COLLECTOR: Lazy<Arc<DamageCollector>> = Lazy::new(|| Arc::new(Dama
 pub struct DamageCollector {
     records: Mutex<HashMap<Fsm, Vec<DamageData>>>,
     fsm_notify: Notify,
+    simple_collector: Mutex<Vec<DamageData>>,
     now_fsm: Mutex<Fsm>,
 }
 
@@ -45,44 +46,84 @@ impl DamageCollector {
         DamageCollector {
             records: Mutex::new(HashMap::new()),
             fsm_notify: Notify::new(),
+            simple_collector: Mutex::new(Vec::new()),
             now_fsm: Mutex::new(Fsm::default()),
         }
     }
 
+    /// 接收伤害事件
     pub async fn on_damage(&self, damage: i32) {
         let fsm = get_fsm();
         debug!("DamageCollector: on damage {} <=> {:?}", damage, fsm);
         // 记录伤害
         let data = DamageData::new(damage, &fsm);
-        self.records.lock().await.entry(fsm).or_insert_with(Vec::new).push(data);
+        self.records.lock().await.entry(fsm).or_insert_with(Vec::new).push(data.clone());
+        self.simple_collector.lock().await.push(data);
     }
 
+    /// 接收fsm变更事件
     pub async fn on_fsm_changed(&self, fsm_after: &Fsm) {
         self.records.lock().await.remove(fsm_after);
         *self.now_fsm.lock().await = fsm_after.clone();
+        self.clear_expired_data().await;
         self.fsm_notify.notify_waiters();
     }
 
+    /// 获取伤害收集器实例
+    pub fn instance() -> Arc<DamageCollector> {
+        DAMAGE_COLLECTOR.clone()
+    }
+
+    /// 获取某个fsm的收集值
     async fn collect_one(&self, fsm: &Fsm) -> i32 {
         if let Some(record) = self.records.lock().await.get(fsm) {
-            record
-                .iter()
-                .map(|data| {
-                    data.damage
-                })
-                .sum()
+            record.iter().map(|data| data.damage).sum()
         } else {
             0
         }
     }
 
-    pub fn instance() -> Arc<DamageCollector> {
-        DAMAGE_COLLECTOR.clone()
+    /// 收集某个时间段的伤害
+    async fn _collect_duration(&self, start_time: DateTime<Utc>, end_time: DateTime<Utc>) -> i32 {
+        let mut result_damage = 0;
+        let simple_collector = self.simple_collector.lock().await;
+        // 使用二分搜索确定开始时间的索引
+        let start_idx = match simple_collector.binary_search_by(|data| data.time.cmp(&start_time)) {
+            Ok(index) => index,
+            Err(index) => index,
+        };
+
+        // 遍历从开始时间到结束时间的数据
+        for data in simple_collector[start_idx..].iter() {
+            if data.time > end_time {
+                break; // 超出结束时间，停止遍历
+            }
+            result_damage += data.damage;
+        }
+
+        result_damage
     }
 
-    pub async fn collect(&self, fsm: &Fsm, timeout_dur: Duration) -> i32 {
+    /// 清除过期的数据
+    async fn clear_expired_data(&self) {
+        let now = Utc::now();
+        let mut simple_collector = self.simple_collector.lock().await;
+        let mut cut_index = 0;
+        for (idx, data) in simple_collector.iter().enumerate() {
+            // 清除60秒之前的数据
+            if data.time + TimeDelta::try_minutes(60).unwrap() < now {
+                cut_index = idx;
+                break;
+            }
+        }
+        simple_collector.drain(0..cut_index);
+    }
+
+    /// 收集某个fsm期间的伤害
+    pub async fn collect_fsm(&self, fsm: &Fsm, timeout_dur: Duration) -> i32 {
         match tokio::time::timeout(timeout_dur, async {
             loop {
+                // fsm变化通知
                 self.fsm_notify.notified().await;
                 if *self.now_fsm.lock().await != *fsm {
                     return self.collect_one(fsm).await;
@@ -98,9 +139,23 @@ impl DamageCollector {
             }
         }
     }
+
+    /// 收集从现在开始一段时间内的伤害
+    pub async fn collect_time(&self, duration: Duration) -> i32 {
+        let start_time = Utc::now();
+        let end_time = start_time + duration;
+        debug!("sleep ready to collect");
+        tokio::time::sleep(duration).await;
+        debug!("sleep end");
+        // 收集伤害
+        let r = self._collect_duration(start_time, end_time).await;
+        debug!("collect end");
+        r
+    }
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 struct DamageData {
     damage: i32,
     fsm: Fsm,

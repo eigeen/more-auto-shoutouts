@@ -9,6 +9,7 @@ use winapi::um::winnt::{DLL_PROCESS_ATTACH, DLL_PROCESS_DETACH};
 use crate::event::Event;
 use crate::triggers::TriggerManager;
 
+mod actions;
 mod conditions;
 mod configs;
 mod event;
@@ -16,7 +17,6 @@ mod game;
 mod game_context;
 mod handlers;
 mod triggers;
-mod actions;
 
 #[cfg(feature = "use_audio")]
 mod audios;

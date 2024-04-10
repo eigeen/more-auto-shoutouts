@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    actions::ActionContext, configs::TriggerCondition, event::{Event, EventType}, triggers::AsTriggerCondition
+    actions::ActionContext,
+    configs::TriggerCondition,
+    event::{Event, EventType},
+    triggers::AsTriggerCondition,
 };
 
 use super::TriggerFn;

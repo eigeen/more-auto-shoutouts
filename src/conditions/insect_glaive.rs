@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    actions::ActionContext, configs::{NewOldValueCmp, TriggerCondition}, event::{Event, EventType}, triggers::{AsTriggerCondition, SharedContext}
+    actions::ActionContext,
+    configs::{NewOldValueCmp, TriggerCondition},
+    event::{Event, EventType},
+    triggers::{AsTriggerCondition, SharedContext},
 };
 
 pub struct InsectGlaiveCondition {

@@ -300,9 +300,9 @@ impl TriggerManager {
             }
             _ => {}
         }
-        let triggers = self.triggers.get_mut(&event.event_type());
+        let triggers = self.triggers.get(&event.event_type());
         if let Some(triggers) = triggers {
-            for trigger in triggers.iter_mut() {
+            for trigger in triggers.iter() {
                 let trigger_clone = trigger.clone();
                 let event_clone = event.clone();
                 tokio::task::spawn(async move {

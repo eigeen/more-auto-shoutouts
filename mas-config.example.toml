@@ -103,11 +103,11 @@ name = "太刀登龙成功"
     [trigger.check.damage]
     damage = { gt = 0 }
     fsm = { target = 3, id = 92 }
-    timeout = 2000
+    timeout = 1000
 
     [[trigger.action]]
     cmd = "SendChatMessage"
-    param = "*太刀登龙造成伤害{{damage}}"
+    param = "太刀侠登龙造成伤害{{damage}}，全体武器行注目礼"
 
 
 # ========== 太刀登龙失败 ==========
@@ -125,11 +125,11 @@ name = "太刀登龙失败"
     [trigger.check.damage]
     damage = { le = 0 }
     fsm = { target = 3, id = 92 }
-    timeout = 2000
+    timeout = 1000
 
     [[trigger.action]]
     cmd = "SendChatMessage"
-    param = "*悲报：太刀侠空登了"
+    param = "悲报，太刀侠空登了，全体武器纳刀三秒致敬"
 
 
 # ========== 太刀居合动作 ==========

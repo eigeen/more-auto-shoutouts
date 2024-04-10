@@ -14,18 +14,26 @@ pub struct DamageCondition {
     cond_damage: ValueCmp,
     cond_fsm: FsmConfig,
     cond_timeout: i32,
+    cond_break_on_fsm_changed: bool,
     shared_ctx: SharedContext,
 }
 
 impl DamageCondition {
     pub fn new_check(cond: &CheckCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
-        if let CheckCondition::Damage { damage, fsm, timeout } = cond {
+        if let CheckCondition::Damage {
+            damage,
+            fsm,
+            timeout,
+            break_on_fsm_changed,
+        } = cond
+        {
             let timeout = timeout.unwrap_or(2000);
             DamageCondition {
                 cond_damage: damage,
                 cond_fsm: fsm,
                 cond_timeout: timeout,
+                cond_break_on_fsm_changed: break_on_fsm_changed,
                 shared_ctx,
             }
         } else {
@@ -41,7 +49,11 @@ impl AsCheckCondition for DamageCondition {
         let damage_collector = DamageCollector::instance();
         let now_fsm = self.shared_ctx.read().await.fsm.clone();
         if self.cond_fsm == now_fsm {
-            let damage = damage_collector.collect(&now_fsm, Duration::from_millis(self.cond_timeout as u64)).await;
+            let damage = if self.cond_break_on_fsm_changed {
+                damage_collector.collect_fsm(&now_fsm, Duration::from_millis(self.cond_timeout as u64)).await
+            } else {
+                damage_collector.collect_time(Duration::from_millis(self.cond_timeout as u64)).await
+            };
             action_ctx.lock().await.insert("damage".to_string(), damage.to_string());
             self.cond_damage == damage
         } else {

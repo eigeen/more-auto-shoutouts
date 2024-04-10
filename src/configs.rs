@@ -129,6 +129,8 @@ pub enum CheckCondition {
         damage: ValueCmp,
         fsm: FsmConfig,
         timeout: Option<i32>,
+        #[serde(default)]
+        break_on_fsm_changed: bool,
     },
 }
 

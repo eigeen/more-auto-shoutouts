@@ -2,7 +2,10 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    actions::ActionContext, configs::{CheckCondition, TriggerCondition, ValueCmp}, event::{Event, EventType}, triggers::{AsCheckCondition, AsTriggerCondition, SharedContext}
+    actions::ActionContext,
+    configs::{CheckCondition, TriggerCondition, ValueCmp},
+    event::{Event, EventType},
+    triggers::{AsCheckCondition, AsTriggerCondition, SharedContext},
 };
 
 use super::{CheckFn, TriggerFn};
