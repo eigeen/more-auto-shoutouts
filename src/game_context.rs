@@ -72,7 +72,7 @@ impl Default for Context {
 }
 
 /// 动作
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Fsm {
     pub target: i32,
     pub id: i32,

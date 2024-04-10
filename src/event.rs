@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// 事件
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Event {
     LoadTriggers { trigger_mgr: TriggerManager },

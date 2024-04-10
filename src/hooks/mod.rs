@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use log::{debug, error};
-use tokio::sync::mpsc::{self, Receiver};
+use tokio::sync::mpsc::{self, Receiver, Sender};
 
 use crate::event::Event;
 
@@ -9,7 +9,7 @@ pub mod damage;
 
 static HOOKS_SENDER: Mutex<Option<mpsc::Sender<Event>>> = Mutex::new(None);
 
-pub fn init_hooks() -> Receiver<Event> {
+pub fn install_hooks() -> Receiver<Event> {
     let (tx, rx) = mpsc::channel(256);
     HOOKS_SENDER.lock().unwrap().replace(tx);
 
@@ -20,7 +20,7 @@ pub fn init_hooks() -> Receiver<Event> {
     rx
 }
 
-pub async fn event_forwarder(mut hooks_rx: Receiver<Event>, main_tx: tokio::sync::mpsc::Sender<Event>) {
+pub async fn event_forwarder(mut hooks_rx: Receiver<Event>, main_tx: Sender<Event>) {
     while let Some(event) = hooks_rx.recv().await {
         match event {
             Event::Damage { damage, .. } => debug!("on Event::Damage damage = {}", damage),

@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    configs::{NewOldValueCmp, TriggerCondition, ValueCmp},
-    event::{Event, EventType},
-    triggers::{AsTriggerCondition, SharedContext},
+    actions::ActionContext, configs::{NewOldValueCmp, TriggerCondition, ValueCmp}, event::{Event, EventType}, triggers::{AsTriggerCondition, SharedContext}
 };
 
 pub struct ChargeBladeCondition {
@@ -44,7 +42,7 @@ impl ChargeBladeCondition {
 
 #[async_trait]
 impl AsTriggerCondition for ChargeBladeCondition {
-    async fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event, _action_ctx: &ActionContext) -> bool {
         let ctx = self.shared_ctx.read().await;
         if let Event::ChargeBlade = event {
             let phials = parse_cfg_phials_special(&self.phials, ctx.charge_blade.max_phials);

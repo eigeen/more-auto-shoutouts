@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    configs::TriggerCondition,
-    event::{Event, EventType},
-    triggers::AsTriggerCondition,
+    actions::ActionContext, configs::TriggerCondition, event::{Event, EventType}, triggers::AsTriggerCondition
 };
 
 use super::TriggerFn;
@@ -38,7 +36,7 @@ impl UseItemCondition {
 
 #[async_trait]
 impl AsTriggerCondition for UseItemCondition {
-    async fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event, _action_ctx: &ActionContext) -> bool {
         (self.trigger_fn)(event)
     }
 

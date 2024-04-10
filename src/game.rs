@@ -1,9 +1,13 @@
+use std::{collections::HashMap, sync::Arc, time::Duration};
+
+use chrono::{DateTime, Utc};
 use log::{debug, info};
 use mhw_toolkit::{
     game_util::{self, WeaponType},
     util,
 };
 use once_cell::sync::Lazy;
+use tokio::sync::{Mutex, Notify};
 
 use crate::game_context::{ChargeBlade, ChatCommand, Fsm, InsectGlaive, SpecializedTool};
 
@@ -28,6 +32,90 @@ static CHAT_MESSAGE_RECV: Lazy<game_util::ChatMessageReceiver> = Lazy::new(|| {
     instance.set_prefix_filter(CHAT_COMMAND_PREFIX);
     instance
 });
+static DAMAGE_COLLECTOR: Lazy<Arc<DamageCollector>> = Lazy::new(|| Arc::new(DamageCollector::new()));
+
+pub struct DamageCollector {
+    records: Mutex<HashMap<Fsm, Vec<DamageData>>>,
+    fsm_notify: Notify,
+    now_fsm: Mutex<Fsm>,
+}
+
+impl DamageCollector {
+    fn new() -> Self {
+        DamageCollector {
+            records: Mutex::new(HashMap::new()),
+            fsm_notify: Notify::new(),
+            now_fsm: Mutex::new(Fsm::default()),
+        }
+    }
+
+    pub async fn on_damage(&self, damage: i32) {
+        let fsm = get_fsm();
+        debug!("DamageCollector: on damage {} <=> {:?}", damage, fsm);
+        // 记录伤害
+        let data = DamageData::new(damage, &fsm);
+        self.records.lock().await.entry(fsm).or_insert_with(Vec::new).push(data);
+    }
+
+    pub async fn on_fsm_changed(&self, fsm_after: &Fsm) {
+        self.records.lock().await.remove(fsm_after);
+        *self.now_fsm.lock().await = fsm_after.clone();
+        self.fsm_notify.notify_waiters();
+    }
+
+    async fn collect_one(&self, fsm: &Fsm) -> i32 {
+        if let Some(record) = self.records.lock().await.get(fsm) {
+            record
+                .iter()
+                .map(|data| {
+                    data.damage
+                })
+                .sum()
+        } else {
+            0
+        }
+    }
+
+    pub fn instance() -> Arc<DamageCollector> {
+        DAMAGE_COLLECTOR.clone()
+    }
+
+    pub async fn collect(&self, fsm: &Fsm, timeout_dur: Duration) -> i32 {
+        match tokio::time::timeout(timeout_dur, async {
+            loop {
+                self.fsm_notify.notified().await;
+                if *self.now_fsm.lock().await != *fsm {
+                    return self.collect_one(fsm).await;
+                }
+            }
+        })
+        .await
+        {
+            Ok(damage) => damage,
+            Err(_) => {
+                // 超时返回当前收集值
+                self.collect_one(fsm).await
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+struct DamageData {
+    damage: i32,
+    fsm: Fsm,
+    time: DateTime<Utc>,
+}
+
+impl DamageData {
+    pub fn new(damage: i32, fsm: &Fsm) -> Self {
+        DamageData {
+            damage,
+            fsm: fsm.clone(),
+            time: Utc::now(),
+        }
+    }
+}
 
 pub fn get_chat_command() -> Option<ChatCommand> {
     if let Some(msg) = CHAT_MESSAGE_RECV.try_recv() {

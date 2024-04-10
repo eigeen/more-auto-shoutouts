@@ -1,6 +1,7 @@
 use crate::{
     configs,
     event::Event,
+    game::DamageCollector,
     game_context::{ChargeBlade, ChatCommand, Context, InsectGlaive},
     triggers::{self, SharedContext, Trigger},
     tx_send_or_break, TriggerManager,
@@ -146,6 +147,7 @@ fn is_charge_blade_changed(new: &ChargeBlade, old: &ChargeBlade) -> bool {
 
 /// 事件处理器
 pub async fn event_handler(mut rx: Receiver<Event>) {
+    let damage_collector = DamageCollector::instance();
     let mut trigger_mgr: Option<TriggerManager> = None;
     loop {
         if let Some(e) = rx.recv().await {
@@ -154,6 +156,13 @@ pub async fn event_handler(mut rx: Receiver<Event>) {
                 info!("已加载新的TriggerManager");
                 continue;
             }
+            if let Event::Damage { damage } = e {
+                damage_collector.on_damage(damage).await;
+            }
+            if let Event::FsmChanged { new, .. } = e {
+                damage_collector.on_fsm_changed(&new).await;
+            }
+
             if let Some(mgr) = &mut trigger_mgr {
                 if let Event::UpdateContext { ctx } = e {
                     mgr.update_ctx(&ctx).await;

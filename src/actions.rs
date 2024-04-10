@@ -1,17 +1,21 @@
 use std::{
     collections::HashMap,
-    sync::atomic::{AtomicI32, Ordering},
+    sync::{
+        atomic::{AtomicI32, Ordering},
+        Arc,
+    },
 };
 
 use async_trait::async_trait;
 use mhw_toolkit::game_util;
 use once_cell::sync::Lazy;
+use tokio::sync::Mutex;
 
 use crate::configs;
 
 static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| game_util::ChatMessageSender::new());
 
-pub type ActionContext = Option<HashMap<String, String>>;
+pub type ActionContext = Arc<Mutex<HashMap<String, String>>>;
 
 #[async_trait]
 pub trait AsAction: Send + Sync {
@@ -39,12 +43,10 @@ impl SendChatMessageAction {
 impl AsAction for SendChatMessageAction {
     async fn execute(&self, action_ctx: &ActionContext) {
         let mut msg = self.msg.clone();
-        if let Some(context) = action_ctx {
-            for (key, value) in context {
-                let placeholder = format!("{{{{{}}}}}", key); // placeholder = "{{ key }}"
-                msg = msg.replace(&placeholder, value);
-            }
-        };
+        for (key, value) in &*action_ctx.lock().await {
+            let placeholder = format!("{{{{{}}}}}", key); // placeholder = "{{ key }}"
+            msg = msg.replace(&placeholder, &value);
+        }
         if self.enabled_cnt {
             msg = msg.replace("{{counter}}", &self.cnt.fetch_add(1, Ordering::SeqCst).to_string());
         }

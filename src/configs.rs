@@ -99,9 +99,6 @@ pub enum TriggerCondition {
         phials: Option<NewOldValueCmp>,
         sword_power: Option<NewOldValueCmp>,
     },
-    Damage {
-        value: ValueCmp,
-    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -116,10 +113,23 @@ pub struct NewOldValueCmp {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CheckCondition {
-    LongswordLevel { value: ValueCmp },
-    WeaponType { value: ValueCmp },
-    QuestState { value: ValueCmp },
-    Fsm { value: FsmConfig },
+    LongswordLevel {
+        value: ValueCmp,
+    },
+    WeaponType {
+        value: ValueCmp,
+    },
+    QuestState {
+        value: ValueCmp,
+    },
+    Fsm {
+        value: FsmConfig,
+    },
+    Damage {
+        damage: ValueCmp,
+        fsm: FsmConfig,
+        timeout: Option<i32>,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

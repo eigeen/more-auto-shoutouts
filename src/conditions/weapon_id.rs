@@ -3,9 +3,7 @@ use log::error;
 
 use super::{CheckFn, TriggerFn};
 use crate::{
-    configs::{CheckCondition, TriggerCondition},
-    event::{Event, EventType},
-    triggers::{AsCheckCondition, AsTriggerCondition, SharedContext},
+    actions::ActionContext, configs::{CheckCondition, TriggerCondition}, event::{Event, EventType}, triggers::{AsCheckCondition, AsTriggerCondition, SharedContext}
 };
 
 pub struct WeaponTypeCondition {
@@ -56,7 +54,7 @@ impl WeaponTypeCondition {
 
 #[async_trait]
 impl AsTriggerCondition for WeaponTypeCondition {
-    async fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event, _action_ctx: &ActionContext) -> bool {
         (self.trigger_fn)(event)
     }
 
@@ -67,7 +65,7 @@ impl AsTriggerCondition for WeaponTypeCondition {
 
 #[async_trait]
 impl AsCheckCondition for WeaponTypeCondition {
-    async fn check(&self) -> bool {
+    async fn check(&self, _action_ctx: &ActionContext) -> bool {
         (self.check_fn)(&*self.shared_ctx.read().await)
     }
 }

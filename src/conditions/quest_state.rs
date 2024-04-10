@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    configs::{CheckCondition, TriggerCondition, ValueCmp},
-    event::{Event, EventType},
-    triggers::{AsCheckCondition, AsTriggerCondition, SharedContext},
+    actions::ActionContext, configs::{CheckCondition, TriggerCondition, ValueCmp}, event::{Event, EventType}, triggers::{AsCheckCondition, AsTriggerCondition, SharedContext}
 };
 
 use super::{CheckFn, TriggerFn};
@@ -74,7 +72,7 @@ impl QuestStateCondition {
 
 #[async_trait]
 impl AsTriggerCondition for QuestStateCondition {
-    async fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event, _action_ctx: &ActionContext) -> bool {
         (self.trigger_fn)(event)
     }
 
@@ -85,7 +83,7 @@ impl AsTriggerCondition for QuestStateCondition {
 
 #[async_trait]
 impl AsCheckCondition for QuestStateCondition {
-    async fn check(&self) -> bool {
+    async fn check(&self, _action_ctx: &ActionContext) -> bool {
         (self.check_fn)(&*self.shared_ctx.read().await)
     }
 }

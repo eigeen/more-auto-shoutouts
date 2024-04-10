@@ -2,9 +2,7 @@ use async_trait::async_trait;
 use log::error;
 
 use crate::{
-    configs::{NewOldValueCmp, TriggerCondition},
-    event::{Event, EventType},
-    triggers::{AsTriggerCondition, SharedContext},
+    actions::ActionContext, configs::{NewOldValueCmp, TriggerCondition}, event::{Event, EventType}, triggers::{AsTriggerCondition, SharedContext}
 };
 
 pub struct InsectGlaiveCondition {
@@ -33,7 +31,7 @@ impl InsectGlaiveCondition {
 
 #[async_trait]
 impl AsTriggerCondition for InsectGlaiveCondition {
-    async fn check(&self, event: &Event) -> bool {
+    async fn check(&self, event: &Event, _action_ctx: &ActionContext) -> bool {
         let ctx = self.shared_ctx.read().await;
         if let Event::InsectGlaive = event {
             compare_cfg_ctx(

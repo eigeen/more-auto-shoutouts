@@ -77,7 +77,7 @@ fn main_entry() -> Result<(), String> {
         // 钩子注册与钩子事件转发
         #[cfg(feature = "hooks")]
         {
-            let hooks_rx = hooks::init_hooks();
+            let hooks_rx = hooks::install_hooks();
             let tx2 = tx.clone();
             tokio::spawn(async move { hooks::event_forwarder(hooks_rx, tx2).await });
         }

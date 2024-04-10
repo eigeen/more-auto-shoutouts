@@ -1,61 +1,51 @@
-use std::collections::HashMap;
+use std::time::Duration;
 
 use async_trait::async_trait;
 use log::error;
-use tokio::sync::Mutex;
 
 use crate::{
     actions::ActionContext,
-    configs::{TriggerCondition, ValueCmp},
-    event::{Event, EventType},
-    triggers::AsTriggerCondition,
+    configs::{CheckCondition, FsmConfig, ValueCmp},
+    game::DamageCollector,
+    triggers::{AsCheckCondition, SharedContext},
 };
 
 pub struct DamageCondition {
-    trigger_value: ValueCmp,
-    action_ctx: Mutex<ActionContext>,
+    cond_damage: ValueCmp,
+    cond_fsm: FsmConfig,
+    cond_timeout: i32,
+    shared_ctx: SharedContext,
 }
 
 impl DamageCondition {
-    pub fn new_trigger(cond: &TriggerCondition) -> Self {
-        let mut instance = DamageCondition {
-            trigger_value: ValueCmp::EqInt(0),
-            action_ctx: Mutex::new(None),
-        };
-
+    pub fn new_check(cond: &CheckCondition, shared_ctx: SharedContext) -> Self {
         let cond = cond.clone();
-        if let TriggerCondition::Damage { value } = cond {
-            instance.trigger_value = value;
+        if let CheckCondition::Damage { damage, fsm, timeout } = cond {
+            let timeout = timeout.unwrap_or(2000);
+            DamageCondition {
+                cond_damage: damage,
+                cond_fsm: fsm,
+                cond_timeout: timeout,
+                shared_ctx,
+            }
         } else {
-            error!("internal: DamageCondition cmp_fn 参数不正确");
+            error!("internal: DamageCondition cond 参数不正确");
+            panic!("internal: DamageCondition cond 参数不正确");
         }
-
-        instance
     }
 }
 
 #[async_trait]
-impl AsTriggerCondition for DamageCondition {
-    async fn check(&self, event: &Event) -> bool {
-        if let Event::Damage { damage, .. } = event {
-            if &self.trigger_value == damage {
-                let mut context = HashMap::new();
-                context.insert("damage".to_string(), damage.to_string());
-                self.action_ctx.lock().await.replace(context);
-                true
-            } else {
-                false
-            }
+impl AsCheckCondition for DamageCondition {
+    async fn check(&self, action_ctx: &ActionContext) -> bool {
+        let damage_collector = DamageCollector::instance();
+        let now_fsm = self.shared_ctx.read().await.fsm.clone();
+        if self.cond_fsm == now_fsm {
+            let damage = damage_collector.collect(&now_fsm, Duration::from_millis(self.cond_timeout as u64)).await;
+            action_ctx.lock().await.insert("damage".to_string(), damage.to_string());
+            self.cond_damage == damage
         } else {
             false
         }
-    }
-
-    fn event_type(&self) -> EventType {
-        EventType::Damage
-    }
-
-    async fn get_action_context(&self) -> ActionContext {
-        self.action_ctx.lock().await.clone()
     }
 }

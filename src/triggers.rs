@@ -14,27 +14,28 @@ use rand::Rng;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    actions::{self, ActionContext, AsAction}, conditions::{
+    actions::{self, ActionContext, AsAction},
+    conditions::{
         charge_blade::ChargeBladeCondition, damage::DamageCondition, fsm::FsmCondition,
         insect_glaive::InsectGlaiveCondition, longsword::LongswordCondition, quest_state::QuestStateCondition,
         use_item::UseItemCondition, weapon_id::WeaponTypeCondition,
-    }, configs::{self, ActionMode, TriggerCondition}, event::{Event, EventType}, game_context::Context
+    },
+    configs::{self, ActionMode, TriggerCondition},
+    event::{Event, EventType},
+    game_context::Context,
 };
 
 pub type SharedContext = Arc<RwLock<Context>>;
 
 #[async_trait]
 pub trait AsTriggerCondition: Send + Sync {
-    async fn check(&self, event: &Event) -> bool;
+    async fn check(&self, event: &Event, action_ctx: &ActionContext) -> bool;
     fn event_type(&self) -> EventType;
-    async fn get_action_context(&self) -> ActionContext {
-        None
-    }
 }
 
 #[async_trait]
 pub trait AsCheckCondition: Send + Sync {
-    async fn check(&self) -> bool;
+    async fn check(&self, action_ctx: &ActionContext) -> bool;
 }
 
 #[async_trait]
@@ -66,10 +67,10 @@ impl TriggerFns {
     }
 
     pub async fn execute(&mut self, event: &Event) {
-        if !self.builder.check_conditions(event).await {
+        let action_ctx = Arc::new(Mutex::new(HashMap::new()));
+        if !self.builder.check_conditions(event, &action_ctx).await {
             return;
         }
-        let action_ctx = self.builder.trigger_condition.get_action_context().await;
         match self.builder.action_mode {
             ActionMode::SequentialAll => {
                 // 顺序执行所有Action
@@ -152,7 +153,7 @@ impl TriggerBuilder {
         }
     }
 
-    async fn check_conditions(&self, event: &Event) -> bool {
+    async fn check_conditions(&self, event: &Event, action_ctx: &ActionContext) -> bool {
         // 状态重置条件判断
         if let ActionMode::SequentialOne = self.action_mode {
             if let Event::QuestStateChanged { new, old, .. } = event {
@@ -167,14 +168,17 @@ impl TriggerBuilder {
                 }
             }
         }
-        // 判断延迟触发器
-        // TODO
         // 判断触发器
-        if !self.trigger_condition.check(event).await {
+        if !self.trigger_condition.check(event, action_ctx).await {
             return false;
         }
         // 判断检查器
-        let checked = stream::iter(self.check_conditions.iter()).all(|c| async move { c.check().await }).await;
+        let checked = stream::iter(self.check_conditions.iter())
+            .all(|c| {
+                let mut action_ctx = action_ctx.clone();
+                async move { c.check(&mut action_ctx).await }
+            })
+            .await;
         if !checked {
             return false;
         }
@@ -231,6 +235,7 @@ impl AsTrigger for Trigger {
 }
 
 /// 触发器管理
+#[derive(Clone)]
 pub struct TriggerManager {
     triggers: HashMap<EventType, Vec<Arc<Mutex<Trigger>>>>,
     all_triggers: Vec<Arc<Mutex<Trigger>>>,
@@ -293,20 +298,18 @@ impl TriggerManager {
                 }
                 return;
             }
-            Event::Damage { .. } => {
-                self.broadcast(event).await;
-                return;
-            }
             _ => {}
         }
         let triggers = self.triggers.get_mut(&event.event_type());
         if let Some(triggers) = triggers {
-            stream::iter(triggers.iter_mut())
-                .for_each(|trigger| async move {
-                    let mut locked = trigger.lock().await;
-                    locked.on_event(event).await;
-                })
-                .await;
+            for trigger in triggers.iter_mut() {
+                let trigger_clone = trigger.clone();
+                let event_clone = event.clone();
+                tokio::task::spawn(async move {
+                    let mut locked = trigger_clone.lock().await;
+                    locked.on_event(&event_clone).await;
+                });
+            }
         }
     }
 }
@@ -363,6 +366,7 @@ fn register_check_condition(
         configs::CheckCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_check(&check_cond, shared_ctx)),
         configs::CheckCondition::QuestState { .. } => Box::new(QuestStateCondition::new_check(&check_cond, shared_ctx)),
         configs::CheckCondition::Fsm { .. } => Box::new(FsmCondition::new_check(&check_cond, shared_ctx)),
+        configs::CheckCondition::Damage { .. } => Box::new(DamageCondition::new_check(&check_cond, shared_ctx)),
     }
 }
 
@@ -382,7 +386,6 @@ fn register_trigger_condition(
         }
         TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(&trigger_cond, shared_ctx)),
         TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(&trigger_cond)),
-        TriggerCondition::Damage { .. } => Box::new(DamageCondition::new_trigger(&trigger_cond)),
     }
 }
 
