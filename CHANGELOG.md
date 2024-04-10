@@ -1,5 +1,90 @@
 # 更新日志
 
+## 0.2.0
+
+**特性：**
+
+- 支持单个动作内的多个伤害数据统计
+- 所有内部实现全部采用async/await异步
+- 单个trigger的执行转为创建异步任务，支持内部长时间阻塞
+- 由于主动式伤害收集模式的实现，现在可以检查伤害为0的情况
+
+**Break Changes:**
+
+- 原配置文件 `trigger_on.damage` 条件取消，由 `check.damage` 替代
+- 具体参考新配置文件[样例](mas-config.example.toml)
+
+**旧配置：**
+
+```toml
+# 旧配置
+[[trigger]]
+action_mode = "sequential_all"
+
+    [trigger.trigger_on.damage]
+    value = { gt = 200 }
+
+    [[trigger.check]]
+    weapon_type.value = 0
+
+    [[trigger.check]]
+    fsm.value = { target = 3, id = 137 }
+
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "强击真三蓄！造成了{{damage}}伤害"
+```
+
+**新配置：**
+
+```toml
+# 新配置
+[[trigger]]
+action_mode = "sequential_all"
+name = "大剑强击真三蓄"
+
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 137 }
+
+    [[trigger.check]]
+    weapon_type.value = 0
+
+    [[trigger.check]]
+    [trigger.check.damage]
+    damage = { gt = 0 }
+    fsm = { target = 3, id = 137 }
+    timeout = 1000
+
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "强击真三蓄！造成了{{damage}}伤害"
+
+# 新配置
+[[trigger]]
+action_mode = "sequential_all"
+name = "太刀登龙成功"
+
+    [trigger.trigger_on.fsm]
+    new = { target = 3, id = 92 }
+
+    [[trigger.check]]
+    weapon_type.value = 3
+
+    # 伤害收集&检查条件
+    # 当你在Action中需要使用{{damage}}时，
+    # 即使不需要判断伤害，也必须要使用trigger.check.damage
+    # 否则上下文获取不到伤害值，无法正常打印伤害
+    [[trigger.check]]
+    [trigger.check.damage]
+    damage = { gt = 0 }
+    fsm = { target = 3, id = 92 }
+    timeout = 2000
+
+    [[trigger.action]]
+    cmd = "SendChatMessage"
+    param = "*太刀登龙造成伤害{{damage}}"
+```
+
 ## 0.1.6
 
 修复游戏内命令使用后失效的问题
