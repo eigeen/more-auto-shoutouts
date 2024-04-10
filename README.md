@@ -4,16 +4,17 @@ MHW 更多定型文mod
 
 # 目录
 
-- [常见问题](https://git.eigeen.com/eigeen/more-auto-shoutouts-docs)
 - [支持功能](#支持功能)
 - [配置文件](#配置文件)
 - [编译](#编译)
 
+安装和使用时出现问题？查看 >[常见问题](https://git.eigeen.com/eigeen/more-auto-shoutouts-docs)<
+
+版本更新内容不明白？查看 >[更新日志](CHANGELOG.md)<
+
 # 支持功能
 
 *盾斧的部分动作出现复用，可能导致误判断。后续更新会有解决方案，例如延迟触发等。*
-
-[更新日志](CHANGELOG.md)
 
 ## 当前支持
 
@@ -22,6 +23,7 @@ MHW 更多定型文mod
 - 动作
 - 任务状态
 - 使用道具/衣装
+- 伤害统计
 
 > 通用配置与武器无关，所有武器均支持检测动作。
 > 
@@ -46,19 +48,19 @@ MHW 更多定型文mod
 
 ## 计划功能
 
-- 斩斧充能
-- 延迟触发
-- BUFF获取
+更多计划功能请查看 >[里程碑](https://github.com/eigeen/more-auto-shoutouts/milestones)<
 
 # 配置文件
 
 配置文件在使用时放置于 `<游戏根目录>/nativePC/plugins/mas-config.toml`
 
+配置文件使用时出现问题？查看 >[常见问题](https://git.eigeen.com/eigeen/more-auto-shoutouts-docs)<
+
 ## 结构
 
-如果能够阅读源码，推荐阅读 [configs.rs](src/configs.rs)
+参考 [示例文件](mas-config.example.toml)，在此基础上修改
 
-或参考 [示例文件](mas-config.example.toml)，在此基础上修改
+如果能够阅读源码，推荐阅读 [configs.rs](src/configs.rs)
 
 # 编译
 
