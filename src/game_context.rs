@@ -1,5 +1,5 @@
 use crate::game;
-use mhw_toolkit::game_util::WeaponType;
+use mhw_toolkit::game_util::{ChatMessageReceiver, WeaponType};
 
 /// 游戏内状态记录上下文
 ///
@@ -7,7 +7,7 @@ use mhw_toolkit::game_util::WeaponType;
 #[derive(Clone, Debug)]
 pub struct Context {
     pub plugin_enabled: bool,
-    pub chat_command: Option<ChatCommand>,
+    pub command_rev: ChatMessageReceiver<40, 4>,
     pub quest_state: i32,
     pub longsword_level: i32,
     pub weapon_type: WeaponType,
@@ -24,7 +24,6 @@ impl Context {
     pub fn update_context(&mut self) {
         self.store_last_context();
 
-        self.chat_command = game::get_chat_command();
         self.quest_state = game::get_quest_state();
         self.weapon_type = game::get_weapon_type();
         self.fsm = game::get_fsm();
@@ -57,7 +56,7 @@ impl Default for Context {
     fn default() -> Self {
         Self {
             plugin_enabled: true,
-            chat_command: Default::default(),
+            command_rev: ChatMessageReceiver::<40, 4>::new([33, 109, 97, 115]), // [33, 109, 97, 115] => "!mas"
             quest_state: Default::default(),
             longsword_level: Default::default(),
             weapon_type: Default::default(),

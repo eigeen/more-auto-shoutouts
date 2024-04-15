@@ -611,7 +611,6 @@ dependencies = [
  "strum",
  "strum_macros",
  "winapi",
- "windows",
 ]
 
 [[package]]
