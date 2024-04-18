@@ -1,15 +1,12 @@
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::{DateTime, TimeDelta, Utc};
-use log::{debug, info};
-use mhw_toolkit::{
-    game_util::{self, WeaponType},
-    util,
-};
+use log::debug;
+use mhw_toolkit::{game_util::WeaponType, util};
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, Notify};
 
-use crate::game_context::{ChargeBlade, ChatCommand, Fsm, InsectGlaive, SpecializedTool};
+use crate::game_context::{ChargeBlade, Fsm, InsectGlaive, SpecializedTool};
 
 const QUEST_BASE: *const i32 = 0x14500CAF0 as *const i32;
 const QUEST_OFFSETS: isize = 0x38;
@@ -26,12 +23,6 @@ const WEAPON_DATA_OFFSETS: &[isize] = &[0x50, 0x76B0];
 const CHARGE_BLADE_BASE: *const i32 = 0x1450EA510 as *const i32;
 const CHARGE_BLADE_MAX_PHIALS_OFFSETS: &[isize] = &[0x110, 0x98, 0x58, 0x5F98];
 
-const CHAT_COMMAND_PREFIX: &str = "!mas ";
-static CHAT_MESSAGE_RECV: Lazy<game_util::ChatMessageReceiver> = Lazy::new(|| {
-    let mut instance = game_util::ChatMessageReceiver::new();
-    instance.set_prefix_filter(CHAT_COMMAND_PREFIX);
-    instance
-});
 static DAMAGE_COLLECTOR: Lazy<Arc<DamageCollector>> = Lazy::new(|| Arc::new(DamageCollector::new()));
 
 pub struct DamageCollector {
@@ -169,20 +160,6 @@ impl DamageData {
             fsm: fsm.clone(),
             time: Utc::now(),
         }
-    }
-}
-
-pub fn get_chat_command() -> Option<ChatCommand> {
-    if let Some(msg) = CHAT_MESSAGE_RECV.try_recv() {
-        debug!("接收用户命令消息：{}", msg);
-        let cmd = ChatCommand::from_str(&msg[CHAT_COMMAND_PREFIX.len()..]);
-        if cmd.is_none() {
-            info!("无效的命令：{}", msg);
-            game_util::send_chat_message("无效的命令");
-        }
-        cmd
-    } else {
-        None
     }
 }
 

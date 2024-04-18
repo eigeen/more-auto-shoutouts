@@ -25,37 +25,44 @@ pub async fn event_listener(tx: Sender<Event>) {
         // 更新上下文
         ctx.update_context();
 
-        // 检查事件
-        // 消息事件
-        if let Some(cmd) = &ctx.chat_command {
+        if ctx.command_rev.try_read_command() {
+            let cmd = ChatCommand::from_str(ctx.command_rev.read_command());
             match cmd {
-                ChatCommand::ReloadConfig => {
-                    debug!("on {}", "ChatCommand::ReloadConfig");
-                    info!("接收用户命令：{:?}", cmd);
-                    let trigger_mgr = match load_triggers().await {
-                        Ok(mgr) => mgr,
-                        Err(e) => {
-                            error!("加载配置失败：{}", e);
-                            continue;
-                        }
-                    };
-                    game_util::show_game_message("已重载配置");
-                    tx_send_or_break!(tx.send(Event::LoadTriggers { trigger_mgr }));
-                }
-                ChatCommand::Enable => {
-                    debug!("on {}", "ChatCommand::Enable");
-                    info!("接收用户命令：{:?}", cmd);
-                    game_util::show_game_message("已启用插件");
-                    ctx.plugin_enabled = true;
-                }
-                ChatCommand::Disable => {
-                    debug!("on {}", "ChatCommand::Disable");
-                    info!("接收用户命令：{:?}", cmd);
-                    game_util::show_game_message("已禁用插件");
-                    ctx.plugin_enabled = false;
+                Some(cmd) => match cmd {
+                    ChatCommand::ReloadConfig => {
+                        debug!("on {}", "ChatCommand::ReloadConfig");
+                        info!("接收用户命令：{:?}", cmd);
+                        let trigger_mgr = match load_triggers().await {
+                            Ok(mgr) => mgr,
+                            Err(e) => {
+                                error!("加载配置失败：{}", e);
+                                continue;
+                            }
+                        };
+                        game_util::show_game_message("已重载配置");
+                        tx_send_or_break!(tx.send(Event::LoadTriggers { trigger_mgr }));
+                    }
+                    ChatCommand::Enable => {
+                        debug!("on {}", "ChatCommand::Enable");
+                        info!("接收用户命令：{:?}", cmd);
+                        game_util::show_game_message("已启用插件");
+                        ctx.plugin_enabled = true;
+                    }
+                    ChatCommand::Disable => {
+                        debug!("on {}", "ChatCommand::Disable");
+                        info!("接收用户命令：{:?}", cmd);
+                        game_util::show_game_message("已禁用插件");
+                        ctx.plugin_enabled = false;
+                    }
+                },
+                None => {
+                    info!("无效的命令：{}", ctx.command_rev.read_command());
+                    game_util::send_chat_message("无效的命令");
                 }
             }
         }
+        // 检查事件
+        // 消息事件
         if !ctx.plugin_enabled {
             continue;
         }
