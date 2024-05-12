@@ -47,7 +47,7 @@ impl DamageCondition {
 impl AsCheckCondition for DamageCondition {
     async fn check(&self, action_ctx: &ActionContext) -> bool {
         let damage_collector = DamageCollector::instance();
-        let now_fsm = self.shared_ctx.read().await.fsm.clone();
+        let now_fsm = self.shared_ctx.read().await.fsm;
         if self.cond_fsm == now_fsm {
             let damage = if self.cond_break_on_fsm_changed {
                 damage_collector.collect_fsm(&now_fsm, Duration::from_millis(self.cond_timeout as u64)).await

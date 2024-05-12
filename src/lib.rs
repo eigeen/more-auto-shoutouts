@@ -43,7 +43,7 @@ mod use_logger {
 
     use crate::logger::MASLogger;
 
-    static LOGGER: Lazy<MASLogger> = Lazy::new(|| MASLogger::new());
+    static LOGGER: Lazy<MASLogger> = Lazy::new(MASLogger::new);
 
     pub fn init_log() {
         log::set_logger(&*LOGGER).unwrap();

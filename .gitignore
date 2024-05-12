@@ -1,6 +1,7 @@
 /target
 /.idea
 /.vscode
+Cargo.lock
 
 *.lib
 mas-config.toml

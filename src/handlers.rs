@@ -234,13 +234,13 @@ mod tests {
     fn test_is_insect_glaive_changed() {
         let mut old = InsectGlaive::default();
         let mut new = InsectGlaive::default();
-        assert_eq!(is_insect_glaive_changed(&new, &old), false);
+        assert!(!is_insect_glaive_changed(&new, &old));
 
         new.attack_timer = 1.0;
-        assert_eq!(is_insect_glaive_changed(&new, &old), true);
+        assert!(is_insect_glaive_changed(&new, &old));
 
         old.attack_timer = new.attack_timer;
         new.attack_timer = 2.0;
-        assert_eq!(is_insect_glaive_changed(&new, &old), false);
+        assert!(!is_insect_glaive_changed(&new, &old));
     }
 }

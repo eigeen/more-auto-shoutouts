@@ -21,7 +21,7 @@ impl WeaponTypeCondition {
         let trigger_fn: TriggerFn = if let TriggerCondition::WeaponType { value } = cond {
             Box::new(move |event| {
                 if let Event::WeaponTypeChanged { new, .. } = event {
-                    &value == &new.as_i32()
+                    value == new.as_i32()
                 } else {
                     false
                 }

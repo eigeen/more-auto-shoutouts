@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 use crate::configs;
 
-static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(|| game_util::ChatMessageSender::new());
+static CHAT_MESSAGE_SENDER: Lazy<game_util::ChatMessageSender> = Lazy::new(game_util::ChatMessageSender::new);
 
 pub type ActionContext = Arc<Mutex<HashMap<String, String>>>;
 
@@ -45,7 +45,7 @@ impl AsAction for SendChatMessageAction {
         let mut msg = self.msg.clone();
         for (key, value) in &*action_ctx.lock().await {
             let placeholder = format!("{{{{{}}}}}", key); // placeholder = "{{ key }}"
-            msg = msg.replace(&placeholder, &value);
+            msg = msg.replace(&placeholder, value);
         }
         if self.enabled_cnt {
             msg = msg.replace("{{counter}}", &self.cnt.fetch_add(1, Ordering::SeqCst).to_string());

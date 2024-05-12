@@ -1,6 +1,6 @@
 use std::ffi::{c_char, c_int};
 use std::os::raw::c_void;
-use std::ptr;
+use std::ptr::{self, addr_of_mut};
 
 use log::error;
 use winapi::shared::minwindef::BOOL;
@@ -45,11 +45,8 @@ pub fn install_hook() -> Result<(), ()> {
         let target_function: *mut c_void = 0x141CC51B0 as *mut c_void;
 
         // 创建钩子
-        let create_hook_status = minhook_sys::MH_CreateHook(
-            target_function,
-            hook_function as *mut c_void,
-            &mut ORIGINAL_FUNCTION as *mut _ as *mut *mut c_void,
-        );
+        let create_hook_status =
+            minhook_sys::MH_CreateHook(target_function, hook_function as *mut c_void, addr_of_mut!(ORIGINAL_FUNCTION));
 
         if create_hook_status == minhook_sys::MH_OK {
             // 启用钩子

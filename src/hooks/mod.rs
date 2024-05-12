@@ -13,7 +13,7 @@ pub fn install_hooks() -> Receiver<Event> {
     let (tx, rx) = mpsc::channel(256);
     HOOKS_SENDER.lock().unwrap().replace(tx);
 
-    if let Err(_) = damage::install_hook() {
+    if damage::install_hook().is_err() {
         error!("初始化伤害钩子错误");
     };
 
@@ -22,10 +22,9 @@ pub fn install_hooks() -> Receiver<Event> {
 
 pub async fn event_forwarder(mut hooks_rx: Receiver<Event>, main_tx: Sender<Event>) {
     while let Some(event) = hooks_rx.recv().await {
-        match event {
-            Event::Damage { damage, .. } => debug!("on Event::Damage damage = {}", damage),
-            _ => (),
-        };
+        if let Event::Damage { damage, .. } = event {
+            debug!("on Event::Damage damage = {}", damage);
+        }
         if let Err(e) = main_tx.send(event).await {
             error!("钩子消息转发失败：{}", e);
             return;

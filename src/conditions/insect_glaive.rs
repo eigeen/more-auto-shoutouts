@@ -21,9 +21,9 @@ impl InsectGlaiveCondition {
         if let TriggerCondition::InsectGlaiveLight { red, white, yellow } = cond {
             InsectGlaiveCondition {
                 shared_ctx,
-                cond_red: red,
-                cond_white: white,
-                cond_yellow: yellow,
+                cond_red: *red,
+                cond_white: *white,
+                cond_yellow: *yellow,
             }
         } else {
             error!("internal: InsectGlaiveCondition: invalid cond {:?}", cond);

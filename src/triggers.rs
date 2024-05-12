@@ -93,15 +93,12 @@ impl TriggerFns {
     }
 
     pub async fn reset(&mut self) {
-        match self.builder.action_mode {
-            ActionMode::SequentialAll => {
-                stream::iter(self.builder.actions.iter())
-                    .for_each(|e| async move {
-                        e.reset().await;
-                    })
-                    .await;
-            }
-            _ => {}
+        if let ActionMode::SequentialAll = self.builder.action_mode {
+            stream::iter(self.builder.actions.iter())
+                .for_each(|e| async move {
+                    e.reset().await;
+                })
+                .await;
         }
     }
 }
@@ -175,8 +172,8 @@ impl TriggerBuilder {
         // 判断检查器
         let checked = stream::iter(self.check_conditions.iter())
             .all(|c| {
-                let mut action_ctx = action_ctx.clone();
-                async move { c.check(&mut action_ctx).await }
+                let action_ctx = action_ctx.clone();
+                async move { c.check(&action_ctx).await }
             })
             .await;
         if !checked {
@@ -261,7 +258,7 @@ impl TriggerManager {
         let shared_trigger = Arc::new(Mutex::new(trigger));
         {
             let locked = shared_trigger.lock().await;
-            self.triggers.entry(locked.event_type()).or_insert_with(Vec::new).push(shared_trigger.clone());
+            self.triggers.entry(locked.event_type()).or_default().push(shared_trigger.clone());
         }
         self.all_triggers.push(shared_trigger);
     }
@@ -289,16 +286,13 @@ impl TriggerManager {
 
     pub async fn dispatch(&mut self, event: &Event) {
         // 需要广播的消息
-        match event {
-            Event::QuestStateChanged { new, .. } => {
-                if new == &1 {
-                    self.broadcast_and_reset(event).await;
-                } else {
-                    self.broadcast(event).await;
-                }
-                return;
+        if let Event::QuestStateChanged { new, .. } = event {
+            if new == &1 {
+                self.broadcast_and_reset(event).await;
+            } else {
+                self.broadcast(event).await;
             }
-            _ => {}
+            return;
         }
         let triggers = self.triggers.get(&event.event_type());
         if let Some(triggers) = triggers {
@@ -361,12 +355,12 @@ fn register_check_condition(
 ) -> Box<dyn AsCheckCondition> {
     match check_cond {
         configs::CheckCondition::LongswordLevel { .. } => {
-            Box::new(LongswordCondition::new_check(&check_cond, shared_ctx))
+            Box::new(LongswordCondition::new_check(check_cond, shared_ctx))
         }
-        configs::CheckCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_check(&check_cond, shared_ctx)),
-        configs::CheckCondition::QuestState { .. } => Box::new(QuestStateCondition::new_check(&check_cond, shared_ctx)),
-        configs::CheckCondition::Fsm { .. } => Box::new(FsmCondition::new_check(&check_cond, shared_ctx)),
-        configs::CheckCondition::Damage { .. } => Box::new(DamageCondition::new_check(&check_cond, shared_ctx)),
+        configs::CheckCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_check(check_cond, shared_ctx)),
+        configs::CheckCondition::QuestState { .. } => Box::new(QuestStateCondition::new_check(check_cond, shared_ctx)),
+        configs::CheckCondition::Fsm { .. } => Box::new(FsmCondition::new_check(check_cond, shared_ctx)),
+        configs::CheckCondition::Damage { .. } => Box::new(DamageCondition::new_check(check_cond, shared_ctx)),
     }
 }
 
@@ -376,16 +370,16 @@ fn register_trigger_condition(
 ) -> Box<dyn AsTriggerCondition> {
     match trigger_cond {
         TriggerCondition::LongswordLevelChanged { .. } => {
-            Box::new(LongswordCondition::new_trigger(&trigger_cond, shared_ctx))
+            Box::new(LongswordCondition::new_trigger(trigger_cond, shared_ctx))
         }
-        TriggerCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_trigger(&trigger_cond, shared_ctx)),
-        TriggerCondition::QuestState { .. } => Box::new(QuestStateCondition::new_trigger(&trigger_cond, shared_ctx)),
-        TriggerCondition::Fsm { .. } => Box::new(FsmCondition::new_trigger(&trigger_cond, shared_ctx)),
+        TriggerCondition::WeaponType { .. } => Box::new(WeaponTypeCondition::new_trigger(trigger_cond, shared_ctx)),
+        TriggerCondition::QuestState { .. } => Box::new(QuestStateCondition::new_trigger(trigger_cond, shared_ctx)),
+        TriggerCondition::Fsm { .. } => Box::new(FsmCondition::new_trigger(trigger_cond, shared_ctx)),
         TriggerCondition::InsectGlaiveLight { .. } => {
-            Box::new(InsectGlaiveCondition::new_trigger(&trigger_cond, shared_ctx))
+            Box::new(InsectGlaiveCondition::new_trigger(trigger_cond, shared_ctx))
         }
-        TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(&trigger_cond, shared_ctx)),
-        TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(&trigger_cond)),
+        TriggerCondition::ChargeBlade { .. } => Box::new(ChargeBladeCondition::new_trigger(trigger_cond, shared_ctx)),
+        TriggerCondition::UseItem { .. } => Box::new(UseItemCondition::new_trigger(trigger_cond)),
     }
 }
 

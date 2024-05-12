@@ -88,16 +88,16 @@ pub enum TriggerCondition {
         item_id: ValueCmp,
     },
     InsectGlaiveLight {
-        red: Option<NewOldValueCmp>,
-        white: Option<NewOldValueCmp>,
-        yellow: Option<NewOldValueCmp>,
+        red: Box<Option<NewOldValueCmp>>,
+        white: Box<Option<NewOldValueCmp>>,
+        yellow: Box<Option<NewOldValueCmp>>,
     },
     ChargeBlade {
-        sword_charge_timer: Option<NewOldValueCmp>,
-        shield_charge_timer: Option<NewOldValueCmp>,
-        power_axe_timer: Option<NewOldValueCmp>,
-        phials: Option<NewOldValueCmp>,
-        sword_power: Option<NewOldValueCmp>,
+        sword_charge_timer: Box<Option<NewOldValueCmp>>,
+        shield_charge_timer: Box<Option<NewOldValueCmp>>,
+        power_axe_timer: Box<Option<NewOldValueCmp>>,
+        phials: Box<Option<NewOldValueCmp>>,
+        sword_power: Box<Option<NewOldValueCmp>>,
     },
 }
 
@@ -226,16 +226,13 @@ where
         // 为Trigger应用全局默认设置
         t.cooldown = Some(t.cooldown.unwrap_or(config.trigger_cd));
         // 检查触发器条件
-        match &t.trigger_on {
-            TriggerCondition::LongswordLevelChanged { new, old } => {
-                if new.is_none() && old.is_none() {
-                    return Err(ConfigError::Validate {
-                        reason: "LongswordLevelChanged 参数不能都为空".to_string(),
-                    });
-                }
+        if let TriggerCondition::LongswordLevelChanged { new, old } = &t.trigger_on {
+            if new.is_none() && old.is_none() {
+                return Err(ConfigError::Validate {
+                    reason: "LongswordLevelChanged 参数不能都为空".to_string(),
+                });
             }
-            _ => {}
-        };
+        }
     }
 
     Ok(config)

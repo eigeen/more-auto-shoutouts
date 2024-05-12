@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::{Metadata, Record};
 use once_cell::sync::Lazy;
 
-static mut LOGGER_CONFIG: Lazy<LoggerConfig> = Lazy::new(|| LoggerConfig::new());
+static mut LOGGER_CONFIG: Lazy<LoggerConfig> = Lazy::new(LoggerConfig::new);
 
 pub struct LoggerConfig {
     module_levels: HashMap<String, mhw_toolkit::logger::LogLevel>,
@@ -40,7 +40,7 @@ impl MASLogger {
 impl log::Log for MASLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
         let target_max_level = match metadata.target().strip_prefix("more_auto_shoutouts::") {
-            Some(target) => unsafe { LOGGER_CONFIG.get_level(target).unwrap_or_else(|| log::Level::Debug) },
+            Some(target) => unsafe { LOGGER_CONFIG.get_level(target).unwrap_or(log::Level::Debug) },
             None => log::Level::Debug,
         };
         if target_max_level < metadata.level() {

@@ -64,7 +64,7 @@ impl DamageCollector {
     /// 接收fsm变更事件
     pub async fn on_fsm_changed(&self, fsm_after: &Fsm) {
         self.records.lock().await.remove(fsm_after);
-        *self.now_fsm.lock().await = fsm_after.clone();
+        *self.now_fsm.lock().await = *fsm_after;
         self.clear_expired_data().await;
         self.fsm_notify.notify_waiters();
     }
@@ -144,13 +144,9 @@ impl DamageCollector {
     pub async fn collect_time(&self, duration: Duration) -> i32 {
         let start_time = Utc::now();
         let end_time = start_time + duration;
-        debug!("sleep ready to collect");
         tokio::time::sleep(duration).await;
-        debug!("sleep end");
         // 收集伤害
-        let r = self._collect_duration(start_time, end_time).await;
-        debug!("collect end");
-        r
+        self._collect_duration(start_time, end_time).await
     }
 }
 
@@ -166,7 +162,7 @@ impl DamageData {
     pub fn new(damage: i32, fsm: &Fsm) -> Self {
         DamageData {
             damage,
-            fsm: fsm.clone(),
+            fsm: *fsm,
             time: Utc::now(),
         }
     }
@@ -187,10 +183,7 @@ pub fn get_chat_command() -> Option<ChatCommand> {
 }
 
 pub fn get_quest_state() -> i32 {
-    match util::get_value_with_offset(QUEST_BASE, &[QUEST_OFFSETS]) {
-        Some(qs) => qs,
-        None => 0,
-    }
+    util::get_value_with_offset(QUEST_BASE, &[QUEST_OFFSETS]).unwrap_or(0)
 }
 
 pub fn get_longsword_level() -> i32 {
@@ -198,30 +191,18 @@ pub fn get_longsword_level() -> i32 {
 }
 
 pub fn get_weapon_type() -> WeaponType {
-    let weapon_type_id = match util::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS) {
-        Some(w) => w,
-        None => 0,
-    };
+    let weapon_type_id = util::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS).unwrap_or(0);
     WeaponType::from_i32(weapon_type_id)
 }
 
 pub fn get_fsm() -> Fsm {
-    let id = match util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMID_OFFSETS) {
-        Some(v) => v,
-        None => 0,
-    };
-    let target = match util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMTARGET_OFFSETS) {
-        Some(v) => v,
-        None => 0,
-    };
+    let id = util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMID_OFFSETS).unwrap_or(0);
+    let target = util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMTARGET_OFFSETS).unwrap_or(0);
     Fsm { id, target }
 }
 
 pub fn get_use_item_id() -> i32 {
-    match util::get_value_with_offset(PLAYER_BASE, USE_ITEM_OFFSETS) {
-        Some(v) => v,
-        None => -1,
-    }
+    util::get_value_with_offset(PLAYER_BASE, USE_ITEM_OFFSETS).unwrap_or(-1)
 }
 
 pub fn get_insect_glaive_data() -> Option<InsectGlaive> {
