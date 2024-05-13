@@ -2,6 +2,14 @@
 
 MHW 更多定型文mod
 
+# 维护计划
+
+该mod当前处于仅维护状态，后续更新会极其缓慢或停止更新。
+
+继任mod： [LuaEngineEx](https://github.com/eigeen/LuaEngineEx) （开发中）
+
+引擎将会提供所有该mod所需的API，计划未来可将该mod所有功能迁移到新的Lua引擎中。
+
 # 目录
 
 - [支持功能](#支持功能)
