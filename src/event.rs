@@ -1,4 +1,4 @@
-use mhw_toolkit::game_util::WeaponType;
+use mhw_toolkit::game::resources::WeaponType;
 
 use crate::{
     game_context::{Context, Fsm},

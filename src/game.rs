@@ -2,10 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use log::{debug, info};
-use mhw_toolkit::{
-    game_util::{self, WeaponType},
-    util,
-};
+use mhw_toolkit::{game::resources::WeaponType, game_util, utils};
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, Notify};
 
@@ -183,55 +180,55 @@ pub fn get_chat_command() -> Option<ChatCommand> {
 }
 
 pub fn get_quest_state() -> i32 {
-    util::get_value_with_offset(QUEST_BASE, &[QUEST_OFFSETS]).unwrap_or(0)
+    utils::get_value_with_offset(QUEST_BASE, &[QUEST_OFFSETS]).unwrap_or(0)
 }
 
 pub fn get_longsword_level() -> i32 {
-    util::get_value_with_offset(WEAPON_DATA_BASE, LONGSWORD_OFFSETS).unwrap_or(99)
+    utils::get_value_with_offset(WEAPON_DATA_BASE, LONGSWORD_OFFSETS).unwrap_or(99)
 }
 
-pub fn get_weapon_type() -> WeaponType {
-    let weapon_type_id = util::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS).unwrap_or(0);
+pub fn get_weapon_type() -> Option<WeaponType> {
+    let weapon_type_id = utils::get_value_with_offset(WEAPON_DATA_BASE, WEAPON_OFFSETS).unwrap_or(0);
     WeaponType::from_i32(weapon_type_id)
 }
 
 pub fn get_fsm() -> Fsm {
-    let id = util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMID_OFFSETS).unwrap_or(0);
-    let target = util::get_value_with_offset(PLAYER_BASE, PLAYER_FSMTARGET_OFFSETS).unwrap_or(0);
+    let id = utils::get_value_with_offset(PLAYER_BASE, PLAYER_FSMID_OFFSETS).unwrap_or(0);
+    let target = utils::get_value_with_offset(PLAYER_BASE, PLAYER_FSMTARGET_OFFSETS).unwrap_or(0);
     Fsm { id, target }
 }
 
 pub fn get_use_item_id() -> i32 {
-    util::get_value_with_offset(PLAYER_BASE, USE_ITEM_OFFSETS).unwrap_or(-1)
+    utils::get_value_with_offset(PLAYER_BASE, USE_ITEM_OFFSETS).unwrap_or(-1)
 }
 
 pub fn get_insect_glaive_data() -> Option<InsectGlaive> {
-    let weapon_data_base = match util::get_ptr_with_offset(WEAPON_DATA_BASE as *const f32, WEAPON_DATA_OFFSETS) {
+    let weapon_data_base = match utils::get_ptr_with_offset(WEAPON_DATA_BASE as *const f32, WEAPON_DATA_OFFSETS) {
         Some(ptr) => ptr,
         None => return None,
     };
     let data: InsectGlaive = InsectGlaive {
-        attack_timer: util::get_value_with_offset(weapon_data_base, &[0x2368]).unwrap_or(0.0),
-        speed_timer: util::get_value_with_offset(weapon_data_base, &[0x236C]).unwrap_or(0.0),
-        defense_timer: util::get_value_with_offset(weapon_data_base, &[0x2370]).unwrap_or(0.0),
+        attack_timer: utils::get_value_with_offset(weapon_data_base, &[0x2368]).unwrap_or(0.0),
+        speed_timer: utils::get_value_with_offset(weapon_data_base, &[0x236C]).unwrap_or(0.0),
+        defense_timer: utils::get_value_with_offset(weapon_data_base, &[0x2370]).unwrap_or(0.0),
     };
 
     Some(data)
 }
 
 pub fn get_charge_blade_data() -> Option<ChargeBlade> {
-    let weapon_data_base = match util::get_ptr_with_offset(WEAPON_DATA_BASE as *const f32, WEAPON_DATA_OFFSETS) {
+    let weapon_data_base = match utils::get_ptr_with_offset(WEAPON_DATA_BASE as *const f32, WEAPON_DATA_OFFSETS) {
         Some(ptr) => ptr,
         None => return None,
     };
     let data: ChargeBlade = ChargeBlade {
-        sword_power: util::get_value_with_offset(weapon_data_base, &[0x2370]).unwrap_or(0.0),
-        sword_charge_timer: util::get_value_with_offset(weapon_data_base, &[0x237C]).unwrap_or(0.0),
-        shield_charge_timer: util::get_value_with_offset(weapon_data_base, &[0x2378]).unwrap_or(0.0),
-        phials: util::get_value_with_offset(weapon_data_base as *const i32, &[0x2374]).unwrap_or(0),
-        max_phials: util::get_value_with_offset(CHARGE_BLADE_BASE, CHARGE_BLADE_MAX_PHIALS_OFFSETS).unwrap_or(0),
-        power_axe_mode: util::get_value_with_offset(weapon_data_base as *const i32, &[0x2474]).unwrap_or(0),
-        power_axe_timer: util::get_value_with_offset(weapon_data_base, &[0x2470]).unwrap_or(0.0),
+        sword_power: utils::get_value_with_offset(weapon_data_base, &[0x2370]).unwrap_or(0.0),
+        sword_charge_timer: utils::get_value_with_offset(weapon_data_base, &[0x237C]).unwrap_or(0.0),
+        shield_charge_timer: utils::get_value_with_offset(weapon_data_base, &[0x2378]).unwrap_or(0.0),
+        phials: utils::get_value_with_offset(weapon_data_base as *const i32, &[0x2374]).unwrap_or(0),
+        max_phials: utils::get_value_with_offset(CHARGE_BLADE_BASE, CHARGE_BLADE_MAX_PHIALS_OFFSETS).unwrap_or(0),
+        power_axe_mode: utils::get_value_with_offset(weapon_data_base as *const i32, &[0x2474]).unwrap_or(0),
+        power_axe_timer: utils::get_value_with_offset(weapon_data_base, &[0x2470]).unwrap_or(0.0),
     };
 
     Some(data)

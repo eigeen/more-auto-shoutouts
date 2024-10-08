@@ -1,5 +1,6 @@
+use mhw_toolkit::game::resources::WeaponType;
+
 use crate::game;
-use mhw_toolkit::game_util::WeaponType;
 
 /// 游戏内状态记录上下文
 ///
@@ -26,7 +27,7 @@ impl Context {
 
         self.chat_command = game::get_chat_command();
         self.quest_state = game::get_quest_state();
-        self.weapon_type = game::get_weapon_type();
+        self.weapon_type = game::get_weapon_type().unwrap_or(WeaponType::GreatSowrd);
         self.fsm = game::get_fsm();
         self.use_item_id = game::get_use_item_id();
         self.longsword_level = if WeaponType::LongSword == self.weapon_type {
@@ -60,7 +61,7 @@ impl Default for Context {
             chat_command: Default::default(),
             quest_state: Default::default(),
             longsword_level: Default::default(),
-            weapon_type: Default::default(),
+            weapon_type: WeaponType::GreatSowrd,
             fsm: Default::default(),
             use_item_id: Default::default(),
             insect_glaive: Default::default(),

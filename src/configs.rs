@@ -240,7 +240,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use mhw_toolkit::game_util::WeaponType;
+
+    use mhw_toolkit::game::resources::WeaponType;
 
     use super::*;
 

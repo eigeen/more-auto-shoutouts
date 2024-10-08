@@ -9,7 +9,10 @@ use crate::{
 
 use futures::{stream, StreamExt};
 use log::{debug, error, info};
-use mhw_toolkit::game_util::{self, WeaponType};
+use mhw_toolkit::{
+    game::resources::WeaponType,
+    game_util::{self, SystemMessageColor},
+};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{
     mpsc::{Receiver, Sender},
@@ -39,19 +42,19 @@ pub async fn event_listener(tx: Sender<Event>) {
                             continue;
                         }
                     };
-                    game_util::show_game_message("已重载配置");
+                    game_util::show_system_message("已重载配置", SystemMessageColor::Blue);
                     tx_send_or_break!(tx.send(Event::LoadTriggers { trigger_mgr }));
                 }
                 ChatCommand::Enable => {
                     debug!("on {}", "ChatCommand::Enable");
                     info!("接收用户命令：{:?}", cmd);
-                    game_util::show_game_message("已启用插件");
+                    game_util::show_system_message("已启用插件", SystemMessageColor::Blue);
                     ctx.plugin_enabled = true;
                 }
                 ChatCommand::Disable => {
                     debug!("on {}", "ChatCommand::Disable");
                     info!("接收用户命令：{:?}", cmd);
-                    game_util::show_game_message("已禁用插件");
+                    game_util::show_system_message("已禁用插件", SystemMessageColor::Blue);
                     ctx.plugin_enabled = false;
                 }
             }
