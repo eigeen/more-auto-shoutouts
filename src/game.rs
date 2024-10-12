@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use log::{debug, info};
-use mhw_toolkit::{game::resources::WeaponType, game_export, game_util, utils};
+use mhw_toolkit::{
+    game::resources::{Player, PlayerStatus, WeaponType},
+    game_export, game_util, utils,
+};
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, Notify};
 
@@ -232,6 +235,22 @@ pub fn get_charge_blade_data() -> Option<ChargeBlade> {
     };
 
     Some(data)
+}
+
+/// 玩家是否加入了救难信号的房间
+pub fn is_player_join_mayday() -> bool {
+    let Some(player) = Player::current_player() else {
+        return false;
+    };
+    let Some(short_info) = player.short_info() else {
+        return false;
+    };
+    // 参加救援
+    if short_info.status() == PlayerStatus::Rescue {
+        return true;
+    }
+
+    false
 }
 
 // TODO

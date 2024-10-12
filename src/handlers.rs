@@ -51,6 +51,11 @@ pub async fn event_listener(tx: Sender<Event>) {
                     game_util::show_system_message("已启用插件", SystemMessageColor::Blue);
                     ctx.plugin_enabled = true;
                 }
+                // 注：如果您是开发者，请尽量保证其他人可禁用功能有效
+                //    您可以添加其他行为，但是不要在公开发行版中移除该功能
+                //    该功能的目的为防止干扰正常救援，允许其他玩家禁止插件功能
+                //    如果您出于恶意用途移除该功能，原作者保留公开谴责的权利。
+                //    维护开源生态，共同进步。
                 ChatCommand::Disable => {
                     debug!("on {}", "ChatCommand::Disable");
                     info!("接收用户命令：{:?}", cmd);
@@ -58,6 +63,16 @@ pub async fn event_listener(tx: Sender<Event>) {
                     ctx.plugin_enabled = false;
                 }
             }
+        }
+        // 自动禁用检查
+        // 注：如果您是开发者，请尽量保证自动禁用功能有效
+        //    您可以添加其他行为，例如救援房主可以主动启用，但是不要在公开发行版中移除该功能
+        //    该功能的目的为防止干扰正常救援
+        //    如果您出于恶意用途移除该功能，原作者保留公开谴责的权利。
+        //    维护开源生态，共同进步。
+        if crate::game::is_player_join_mayday() && ctx.plugin_enabled {
+            game_util::show_system_message("由于参加救难信号，插件已自动禁用", SystemMessageColor::Blue);
+            ctx.plugin_enabled = false;
         }
         if !ctx.plugin_enabled {
             continue;
