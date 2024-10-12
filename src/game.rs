@@ -2,25 +2,25 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use chrono::{DateTime, TimeDelta, Utc};
 use log::{debug, info};
-use mhw_toolkit::{game::resources::WeaponType, game_util, utils};
+use mhw_toolkit::{game::resources::WeaponType, game_export, game_util, utils};
 use once_cell::sync::Lazy;
 use tokio::sync::{Mutex, Notify};
 
 use crate::game_context::{ChargeBlade, ChatCommand, Fsm, InsectGlaive, SpecializedTool};
 
-const QUEST_BASE: *const i32 = 0x14500CAF0 as *const i32;
+const QUEST_BASE: *const i32 = game_export::QUEST_BASE as *const i32;
+const WEAPON_DATA_BASE: *const i32 = game_export::PLAYER_BASE as *const i32;
+const PLAYER_BASE: *const i32 = game_export::PLAYER_BASE as *const i32;
 const QUEST_OFFSETS: isize = 0x38;
-const PLAYER_BASE: *const i32 = 0x145011760 as *const i32;
 const PLAYER_FSMTARGET_OFFSETS: &[isize] = &[0x50, 0x6274];
 const PLAYER_FSMID_OFFSETS: &[isize] = &[0x50, 0x6278];
 const USE_ITEM_OFFSETS: &[isize] = &[0x50, 0x80, 0x80, 0x10, 0x288, 0x28E0];
 
-const WEAPON_DATA_BASE: *const i32 = 0x145011760 as *const i32;
 const LONGSWORD_OFFSETS: &[isize] = &[0x50, 0x468, 0x70, 0x10, 0x18, 0x2370];
 const WEAPON_OFFSETS: &[isize] = &[0x50, 0xC0, 0x8, 0x78, 0x2E8];
 const WEAPON_DATA_OFFSETS: &[isize] = &[0x50, 0x76B0];
 
-const CHARGE_BLADE_BASE: *const i32 = 0x1450EA510 as *const i32;
+const CHARGE_BLADE_BASE: *const i32 = 0x1450EC750 as *const i32; // 0x1450EA510 15.22
 const CHARGE_BLADE_MAX_PHIALS_OFFSETS: &[isize] = &[0x110, 0x98, 0x58, 0x5F98];
 
 const CHAT_COMMAND_PREFIX: &str = "!mas ";
