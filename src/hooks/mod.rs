@@ -13,8 +13,8 @@ pub fn install_hooks() -> Receiver<Event> {
     let (tx, rx) = mpsc::channel(256);
     HOOKS_SENDER.lock().unwrap().replace(tx);
 
-    if damage::install_hook().is_err() {
-        error!("初始化伤害钩子错误");
+    if let Err(e) = damage::install_hook() {
+        error!("初始化伤害钩子错误: {}", e);
     };
 
     rx

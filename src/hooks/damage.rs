@@ -3,6 +3,7 @@ use std::os::raw::c_void;
 use std::ptr::{self, addr_of_mut};
 
 use log::error;
+use mhw_toolkit::game::address::{self, AddressRepository};
 use winapi::shared::minwindef::BOOL;
 
 use crate::event::Event;
@@ -36,13 +37,14 @@ extern "C" fn hook_function(
     }
 }
 
-pub fn install_hook() -> Result<(), ()> {
+pub fn install_hook() -> Result<(), String> {
     unsafe {
         // 初始化MinHook
         minhook_sys::MH_Initialize();
 
         // 获取目标函数地址
-        let target_function: *mut c_void = 0x141CC51B0 as *mut c_void;
+        let func_addr = AddressRepository::get_instance().lock().unwrap().get_address(address::player::DrawDamage)?;
+        let target_function: *mut c_void = func_addr as *mut c_void;
 
         // 创建钩子
         let create_hook_status =
@@ -52,7 +54,7 @@ pub fn install_hook() -> Result<(), ()> {
             // 启用钩子
             minhook_sys::MH_EnableHook(target_function);
         } else {
-            return Err(());
+            return Err(format!("创建伤害Hook失败：code: {}", create_hook_status));
         }
 
         minhook_sys::MH_ApplyQueued();
