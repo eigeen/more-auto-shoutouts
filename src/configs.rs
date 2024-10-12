@@ -214,6 +214,14 @@ pub fn load_config<P>(path: P) -> Result<Config, ConfigError>
 where
     P: AsRef<Path>,
 {
+    if !path.as_ref().exists() {
+        return Err(ConfigError::Io {
+            source: std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("配置文件不存在，请检查该路径: {}", path.as_ref().display()),
+            ),
+        });
+    }
     let s: String = fs::read_to_string(path).context(IoSnafu)?;
     let mut config: Config = toml::from_str(&s).context(ParseSnafu)?;
     // 预验证config
